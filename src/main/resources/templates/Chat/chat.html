@@ -1,0 +1,38 @@
+{#include base}
+    {#title}Chat Assistant{/title}
+
+    {#stylesheets}
+    <link rel="stylesheet" href="/chat.css">
+    {/stylesheets}
+
+    {#scripts}
+    <script src="/chat-interface.js"></script>
+    {/scripts}
+
+    {#header-title}Chat Assistant{/header-title}
+
+    {#mainClass}class="chat-area"{/mainClass}
+    {#content}
+      <div id="chat-messages"></div>
+
+      <div id="input-container">
+          <textarea
+              id="message-input"
+              placeholder="Ask your question..."
+              autocomplete="off"
+              rows="1"></textarea>
+          <button id="send-btn">Send</button>
+      </div>
+    {/content}
+
+    {#footer-scripts}
+    <script>
+        new ChatInterface({
+            apiEndpoint: '/api/chat',
+            loadingMessage: 'Thinking...',
+            errorMessage: 'Error: Could not get response from the LLM.',
+            method: 'POST'
+        });
+    </script>
+    {/footer-scripts}
+{/include}

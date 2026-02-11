@@ -1,0 +1,53 @@
+@use 'colors';
+@use 'base';
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  min-height: 0; // allow children to shrink and scroll in flex layouts
+  padding: 0;
+}
+
+footer {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  padding: 0;
+  text-align: center;
+  border-top: 1px solid var(--color-border-primary);
+  font-size: var(--font-size-xs);
+
+  >p {
+    margin: var(--spacing-xs);
+  }
+}
+
+// Theme toggle button
+.theme-toggle {
+  --size: 1.2rem;
+
+  background: none;
+  border: none;
+  padding: 0;
+
+  height: var(--size);
+  width: var(--size);
+  inline-size: var(--size);
+  block-size: var(--size);
+  aspect-ratio: 1;
+  border-radius: 50%;
+
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  outline-offset: 5px;
+
+  color: var(--color-text-primary);
+
+  &>svg {
+    inline-size: 100%;
+    block-size: 100%;
+    stroke-linecap: round;
+  }
+}

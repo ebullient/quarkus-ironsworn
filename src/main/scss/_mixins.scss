@@ -1,0 +1,31 @@
+// Custom scrollbar
+@use 'variables' as *;
+
+@mixin custom-scrollbar($width: $scrollbar-width, $track-color: var(--color-bg-elevated), $thumb-color: var(--color-text-accent)) {
+    &::-webkit-scrollbar {
+        width: $width;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: $track-color;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: $thumb-color;
+        border-radius: 5px;
+    }
+}
+
+// Flash/Status Message
+@mixin status-message($bg-color, $border-color, $text-color) {
+    background: $bg-color;
+    border-left: 4px solid $border-color;
+    color: $text-color;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-sm);
+}
+
+// Gradient Background
+@mixin gradient-bg($color1, $color2, $angle: 135deg) {
+    background: linear-gradient($angle, $color1 0%, $color2 100%);
+}
