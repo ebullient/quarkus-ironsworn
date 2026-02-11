@@ -20,8 +20,8 @@ import dev.ebullient.ironsworn.chat.MarkdownAugmenter;
  * Provides direct access to the underlying chat model.
  */
 @ApplicationScoped
-@Path("/api/chat")
-public class ChatResource {
+@Path("/api/rules")
+public class ChatRulesResource {
 
     @Inject
     ChatAssistant chatService;
@@ -32,21 +32,21 @@ public class ChatResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public String chat(@RestQuery String question) {
-        JsonChatResponse chatResponse = chatService.chat(question);
+        JsonChatResponse chatResponse = chatService.rules(question);
         return prettify.markdownToHtml(chatResponse.response());
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public JsonChatResponse chatJson(@RestQuery String question) {
-        return chatService.chat(question);
+        return chatService.rules(question);
     }
 
     @POST
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.TEXT_HTML)
     public String postChat(String question) {
-        JsonChatResponse chatResponse = chatService.chat(question);
+        JsonChatResponse chatResponse = chatService.rules(question);
         return prettify.markdownToHtml(chatResponse.response());
     }
 }

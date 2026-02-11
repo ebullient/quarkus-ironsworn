@@ -77,15 +77,23 @@ body {
   --color-bg-assistant: rgba(var(--purple-4-rgb), 0.2);
   --color-border-assistant: var(--purple-2);
 
-  // --color-text-accent
-  // --color-bg-interactive-accent
-  // --color-bg-interactive-accent-hover
+  --color-interactive-normal: var(--gray-dark-6);
+  --color-bg-interactive-hover: var(--cyan-4);
+  --color-bg-interactive-accent: var(--cyan-5);
+  --color-bg-interactive-accent-hover: var(--cyan-4);
 
   // --color-border-primary
 
   --link-color: var(--gray);
   --link-decoration-color: var(--cyan-4);
   --link-color-hover: var(--cyan-4);
+
+  // Shadows
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 12px rgba(var(--primary-accent-4-rgb), 0.3);
+  --shadow-focus: 0 0 5px rgba(var(--primary-accent-4-rgb), 0.6);
+  --shadow-focus-ai: 0 0 0 2px rgba(var(--blue-2-rgb), 0.4);
 }
 
 :not(.dark) body {
@@ -104,13 +112,20 @@ body {
   --color-bg-assistant: rgba(var(--purple-4-rgb), 0.1);
   --color-border-assistant: var(--purple-4);
 
-  // --color-text-accent
-  // --color-bg-interactive-accent
-  // --color-bg-interactive-accent-hover
+  --color-interactive-normal: var(--gray-light-5);
+  --color-bg-interactive-hover: var(--cyan-1);
+  --color-bg-interactive-accent: var(--cyan-4);
+  --color-bg-interactive-accent-hover: var(--cyan-3);
 
   // --color-border-primary
 
   --link-color: var(--gray-dark-4);
   --link-color-hover: var(--cyan-3);
   --link-decoration-color: var(--cyan-2);
+
+  // Shadows
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 4px 12px rgba(var(--cyan-4-rgb), 0.2);
+  --shadow-focus: 0 0 5px rgba(var(--cyan-4-rgb), 0.5);
 }

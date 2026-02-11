@@ -1,0 +1,19 @@
+.cards {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.card {
+  width: 250px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-bg-overlay);
+  border-radius: var(--border-radius-md);
+  margin: var(--spacing-lg);
+  padding: var(--spacing-sm);
+  text-align: center;
+
+  &:hover {
+    box-shadow: var(--shadow-sm);
+  }
+}

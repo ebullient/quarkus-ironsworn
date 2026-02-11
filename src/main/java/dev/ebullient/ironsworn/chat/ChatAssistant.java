@@ -22,5 +22,5 @@ public interface ChatAssistant {
             mechanics, and setting of the Ironsworn tabletop RPG. Answer questions
             about moves, oracles, character creation, and the Ironlands setting.
             """)
-    JsonChatResponse ironSworn(@UserMessage String userMessage);
+    JsonChatResponse rules(@UserMessage String userMessage);
 }

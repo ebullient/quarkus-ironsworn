@@ -12,6 +12,8 @@ public class Chat extends Controller {
     @CheckedTemplate
     public static class Templates {
         public static native TemplateInstance chat();
+
+        public static native TemplateInstance rules();
     }
 
     /**
@@ -19,8 +21,16 @@ public class Chat extends Controller {
      */
     @GET
     @Path("/chat")
-    public TemplateInstance index() {
+    public TemplateInstance chat() {
         return Templates.chat();
     }
 
+    /**
+     * Serve the main chat page.
+     */
+    @GET
+    @Path("/rules")
+    public TemplateInstance rules() {
+        return Templates.rules();
+    }
 }
