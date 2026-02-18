@@ -1,0 +1,25 @@
+{#include base}
+{#title}Ironsworn Moves{/title}
+
+{#stylesheets}
+<link rel="stylesheet" href="/reference.css">
+{/stylesheets}
+
+{#header-title}Ironsworn Moves{/header-title}
+
+{#mainClass}class="reference"{/mainClass}
+{#content}
+{#each moves}
+<h2>{it.name.value}</h2>
+{util:mdToHtml(it.description)}
+{util:mdToHtml(it.summary)}
+
+{#for e in it.contents.entrySet}
+<h3 id="{e.key}">{e.value.name.value}</h3>
+
+{util:mdToHtml(e.value.text)}
+{/for}
+
+{/each}
+{/content}
+{/include}

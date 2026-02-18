@@ -1,5 +1,6 @@
 package dev.ebullient.ironsworn.web;
 
+import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.Path;
 
 import io.quarkiverse.renarde.Controller;
@@ -11,6 +12,7 @@ import io.quarkus.qute.TemplateInstance;
  * Provides an overview of the application's features.
  */
 @Path("/")
+@ApplicationScoped
 public class Index extends Controller {
 
     @CheckedTemplate

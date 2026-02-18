@@ -1,7 +1,9 @@
 // Custom scrollbar
 @use 'variables' as *;
 
-@mixin custom-scrollbar($width: $scrollbar-width, $track-color: var(--color-bg-elevated), $thumb-color: var(--color-text-accent)) {
+@mixin custom-scrollbar($width: $scrollbar-width,
+  $track-color: var(--color-bg-elevated),
+  $thumb-color: var(--color-bg-overlay)) {
     &::-webkit-scrollbar {
         width: $width;
     }

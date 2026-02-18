@@ -1,0 +1,54 @@
+{#include base}
+{#title}Ironsworn Oracles{/title}
+
+{#stylesheets}
+<link rel="stylesheet" href="/reference.css">
+{/stylesheets}
+
+{#header-title}Ironsworn Oracles{/header-title}
+
+{#mainClass}class="reference"{/mainClass}
+{#content}
+{#each collection}
+<h2>{it.name.value}</h2>
+{util:mdToHtml(it.description)}
+{util:mdToHtml(it.summary)}
+
+{#for table in it.contents.values}
+<h3>{table.name.value}</h3>
+{util:mdToHtml(table.description)}
+{util:mdToHtml(table.summary)}
+{#include Reference/rollableTable table=table /}
+{/for}
+
+{#for nested in it.collections}
+<h3>{nested.value.name.value}</h3>
+{util:mdToHtml(nested.value.description)}
+{util:mdToHtml(nested.value.summary)}
+{#each nested.value.rollableTable}
+<h4>{it.name.value}</h4>
+{util:mdToHtml(it.description)}
+{util:mdToHtml(it.summary)}
+{#include Reference/rollableTable table=it /}
+<br />
+{/each}{#each nested.value.columnText}
+<h4>{it.name.value}</h4>
+{util:mdToHtml(it.summary)}
+{#if it.match}{util:mdToHtml(it.match.text)}{/if}
+<table class="oracle-table">
+  <thead>
+    <tr><th>Min</th><th>Max</th><th>Result</th></tr>
+  </thead>
+  <tbody>
+    {#for row in it.rows}
+    <tr><td>{row.min}</td><td>{row.max}</td><td>{util:mdToHtml(row.text)}</td></tr>
+    {/for}
+  </tbody>
+</table>
+<br />
+{/each}
+{/for}
+
+{/each}
+{/content}
+{/include}

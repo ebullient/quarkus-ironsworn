@@ -1,0 +1,48 @@
+@use 'mixins' as *;
+
+main.reference {
+  position: relative;
+  overflow-y: auto;
+  padding: var(--spacing-md);
+  max-width: 800px;
+  align-self: center;
+  @include custom-scrollbar();
+
+  h2 {
+    border-bottom: 1px solid var(--color-border-user);
+  }
+
+  h3 {
+    border-bottom: 1px solid var(--color-border-assistant);
+  }
+
+  table {
+    border-collapse: collapse;
+
+    thead {
+      background-color: var(--color-bg-elevated);
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: var(--color-bg-overlay);
+    }
+
+    th,
+    td {
+      text-align: left;
+      border: 1px solid var(--color-bg-elevated);
+    }
+
+    td {
+      min-width: 5em;
+
+      p:first-child {
+        margin-top: 0;
+      }
+
+      p:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+}

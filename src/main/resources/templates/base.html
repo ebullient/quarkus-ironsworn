@@ -34,8 +34,18 @@
     <nav>
         <a href="/">Home</a>
         <a href="/chat">💬 Chat</a>
-        <a href="/rules">📖 Rules</a>
+        <a href="/rules">💬 Rules/Setting</a>
+        <a href="/reference">📖 Reference</a>
     </nav>
+    <script>
+        document.querySelectorAll('nav a').forEach(a => {
+            const path = window.location.pathname;
+            const href = a.getAttribute('href');
+            if (href === '/' ? path === '/' : path.startsWith(href)) {
+                a.classList.add('active');
+            }
+        });
+    </script>
     {/insert}
 
     <main {#insert mainClass}{/insert} {#insert mainData}{/insert}>

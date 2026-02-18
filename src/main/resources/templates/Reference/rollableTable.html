@@ -1,0 +1,29 @@
+{@Datasworn.OracleTableRollable table}
+<table class="oracle-table">
+  <thead>
+    <tr>
+      <th>{table.columnLabels.roll.value ?: 'Roll'}</th>
+      <th>{table.columnLabels.text.value ?: 'Result'}</th>
+      {#if table.oracleType == 'table_text2' || table.oracleType == 'table_text3'}
+      <th>{table.columnLabels.text2.value}</th>
+      {/if}
+      {#if table.oracleType == 'table_text3'}
+      <th>{table.columnLabels.text3.value}</th>
+      {/if}
+    </tr>
+  </thead>
+  <tbody>
+    {#for row in table.rows}
+    <tr>
+      <td>{#if row.min.equals(row.max)}{row.min}{#else}{row.min}-{row.max}{/if}</td>
+      <td>{util:mdToHtml(row.text)}</td>
+      {#if table.oracleType == 'table_text2' || table.oracleType == 'table_text3'}
+      <td>{util:mdToHtml(row.text2)}</td>
+      {/if}
+      {#if table.oracleType == 'table_text3'}
+      <td>{util:mdToHtml(row.text3)}</td>
+      {/if}
+    </tr>
+    {/for}
+  </tbody>
+</table>
