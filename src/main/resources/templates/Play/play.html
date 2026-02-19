@@ -1,0 +1,140 @@
+{#include base}
+    {#title}Ironsworn — {campaign.name}{/title}
+    {#header-title}{campaign.name}{/header-title}
+
+    {#stylesheets}
+    <link rel="stylesheet" href="/play.css">
+    {/stylesheets}
+
+    {#scripts}
+    <script src="/play-interface.js"></script>
+    {/scripts}
+
+    {#mainClass}class="play-area"{/mainClass}
+
+    {#content}
+    <!-- Character header bar (always visible) -->
+    <div id="character-bar">
+        <span id="char-name-display" class="char-name"></span>
+        <div class="stat-buttons">
+            <button class="stat-btn" data-stat="edge">Edge <span id="stat-edge">0</span></button>
+            <button class="stat-btn" data-stat="heart">Heart <span id="stat-heart">0</span></button>
+            <button class="stat-btn" data-stat="iron">Iron <span id="stat-iron">0</span></button>
+            <button class="stat-btn" data-stat="shadow">Shadow <span id="stat-shadow">0</span></button>
+            <button class="stat-btn" data-stat="wits">Wits <span id="stat-wits">0</span></button>
+        </div>
+        <div class="meters">
+            <span class="meter" id="meter-health" title="Health">&#x2764; <span>5</span></span>
+            <span class="meter" id="meter-spirit" title="Spirit">&#x2728; <span>5</span></span>
+            <span class="meter" id="meter-supply" title="Supply">&#x1F392; <span>5</span></span>
+            <span class="meter" id="meter-momentum" title="Momentum">&#x26A1; <span>2</span></span>
+        </div>
+    </div>
+
+    <!-- Scene context bar -->
+    <div id="scene-bar">
+        <span id="scene-location"></span>
+        <span id="scene-npcs"></span>
+    </div>
+
+    <!-- Main layout -->
+    <div id="play-layout">
+        <!-- Narrative chat (primary) -->
+        <div id="narrative-area">
+            <div id="chat-messages"></div>
+
+            <!-- Roll panel (hidden until move selected) -->
+            <div id="roll-panel" class="hidden">
+                <div id="roll-panel-header">
+                    <span id="roll-move-name"></span>
+                    <button id="roll-cancel" title="Cancel">&times;</button>
+                </div>
+                <div id="roll-stat-prompt">Select a stat above, then:</div>
+                <div id="roll-actions">
+                    <button id="roll-btn" class="btn-primary" disabled>Roll</button>
+                    <label class="manual-toggle">
+                        <input type="checkbox" id="manual-dice-toggle"> Enter dice
+                    </label>
+                </div>
+                <div id="manual-dice" class="hidden">
+                    <label>Action (d6) <input type="number" id="dice-action" min="1" max="6"></label>
+                    <label>Challenge 1 (d10) <input type="number" id="dice-c1" min="1" max="10"></label>
+                    <label>Challenge 2 (d10) <input type="number" id="dice-c2" min="1" max="10"></label>
+                </div>
+                <!-- Momentum burn prompt (shown dynamically) -->
+                <div id="momentum-burn" class="hidden">
+                    <div id="burn-comparison"></div>
+                    <button id="burn-btn">Burn Momentum</button>
+                    <button id="skip-burn-btn">Keep Result</button>
+                </div>
+            </div>
+
+            <div id="input-container">
+                <textarea
+                    id="message-input"
+                    placeholder="What do you do?"
+                    autocomplete="off"
+                    rows="1"></textarea>
+                <button id="send-btn">Send</button>
+            </div>
+        </div>
+
+        <!-- Sidebar (moves + oracles + vows) -->
+        <aside id="sidebar">
+            <div id="moves-section">
+                <h3>Moves</h3>
+                {#for entry in moves.entrySet()}
+                <details class="move-category">
+                    <summary>{entry.value.name.value}</summary>
+                    {#if entry.value.contents != null}
+                    {#for move in entry.value.contents.entrySet()}
+                    <button class="move-btn"
+                            data-category="{entry.key}"
+                            data-move="{move.key}"
+                            data-move-name="{move.value.name.value}">
+                        {move.value.name.value}
+                    </button>
+                    {/for}
+                    {/if}
+                </details>
+                {/for}
+            </div>
+
+            <div id="oracles-section">
+                <h3>Oracles</h3>
+                {#for oracle in oracles}
+                <details class="oracle-category">
+                    <summary>{oracle.name.value}</summary>
+                    {#if oracle.contents != null}
+                    {#for table in oracle.contents.entrySet()}
+                    <button class="oracle-btn"
+                            data-collection="{oracle.name.value}"
+                            data-table="{table.key}">
+                        {table.value.name.value}
+                    </button>
+                    {/for}
+                    {/if}
+                </details>
+                {/for}
+            </div>
+
+            <div id="vows-section">
+                <h3>Vows</h3>
+                <div id="vows-list"></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Bottom drawer toggle (narrow screens) -->
+    <button id="drawer-toggle" title="Moves &amp; Oracles">&#9776;</button>
+    {/content}
+
+    {#footer-scripts}
+    <script>
+        new PlayInterface({
+            campaignId: '{campaign.id}',
+            wsUrl: 'ws://' + window.location.host + '/ws/play/{campaign.id}'
+        });
+    </script>
+    {/footer-scripts}
+{/include}
