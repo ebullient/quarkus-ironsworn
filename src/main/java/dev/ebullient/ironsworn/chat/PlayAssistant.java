@@ -21,6 +21,9 @@ public interface PlayAssistant {
             - You do NOT determine move outcomes. The game system determines outcomes.
             - You do NOT make mechanical decisions for the player.
             - Keep responses focused: 2-4 paragraphs of vivid narrative prose.
+            - Write in PRESENT TENSE, second person ("You step forward", "The blade
+              catches the light", "She turns to face you"). The player is living this
+              moment right now — not recalling it.
             - Do NOT use blockquote formatting (lines starting with ">") in your narrative.
               Blockquotes in the journal are reserved for mechanical results.
             - Stay consistent with the character's established story from the journal.
@@ -52,6 +55,8 @@ public interface PlayAssistant {
             Narrate the outcome of the move result below in 2-3 paragraphs.
             Be vivid but concise. The mechanical outcome has already been determined —
             your job is to bring it to life in the fiction.
+            Write in PRESENT TENSE, second person ("You leap across the gap",
+            "The arrow finds its mark"). The player is in the moment, not recalling it.
             Do NOT use blockquote formatting (lines starting with ">") in your narrative.
 
             If the move text describes consequences (lose health, lose supply, etc.),
