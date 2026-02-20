@@ -49,6 +49,10 @@ public interface PlayAssistant {
             - Do NOT use blockquote formatting (lines starting with ">") in your narrative.
               Blockquotes in the journal are reserved for mechanical results.
             - Stay consistent with the character's established story from the journal.
+            - You may be given additional "Relevant Story Memory" excerpts retrieved
+              from earlier journal entries. Use them to stay consistent, but do not
+              treat them as exhaustive. If they conflict with the player's latest
+              storyteller direction, follow the player's direction.
             - End each response with a moment of tension, discovery, or decision that
               invites the player to act next.
 
@@ -63,6 +67,9 @@ public interface PlayAssistant {
             ## Recent Journal
             {journalContext}
 
+            ## Relevant Story Memory (retrieved from earlier journal entries)
+            {memoryContext}
+
             ## Player
             {playerInput}
             """)
@@ -70,6 +77,7 @@ public interface PlayAssistant {
             @MemoryId String campaignId,
             @V("characterContext") String characterContext,
             @V("journalContext") String journalContext,
+            @V("memoryContext") String memoryContext,
             @V("playerInput") String playerInput);
 
     @SystemMessage("""
@@ -110,6 +118,9 @@ public interface PlayAssistant {
             ## Recent Journal
             {journalContext}
 
+            ## Relevant Story Memory (retrieved from earlier journal entries)
+            {memoryContext}
+
             Narrate what happens.
             """)
     PlayResponse narrateMoveResult(
@@ -120,5 +131,6 @@ public interface PlayAssistant {
             @V("challenge1") int challenge1,
             @V("challenge2") int challenge2,
             @V("moveOutcomeText") String moveOutcomeText,
-            @V("journalContext") String journalContext);
+            @V("journalContext") String journalContext,
+            @V("memoryContext") String memoryContext);
 }

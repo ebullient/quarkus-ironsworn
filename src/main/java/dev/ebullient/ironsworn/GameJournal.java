@@ -12,11 +12,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import dev.ebullient.ironsworn.memory.StoryMemoryIndexer;
 import dev.ebullient.ironsworn.model.Campaign;
 import dev.ebullient.ironsworn.model.CharacterSheet;
 import dev.ebullient.ironsworn.model.Rank;
@@ -39,6 +41,9 @@ public class GameJournal {
 
     @ConfigProperty(name = "ironsworn.journal.dir", defaultValue = "${user.home}/.ironsworn")
     String journalDir;
+
+    @Inject
+    StoryMemoryIndexer storyMemoryIndexer;
 
     private Path resolveJournalDir() {
         Path dir = Path.of(journalDir);
@@ -118,6 +123,9 @@ public class GameJournal {
             Files.writeString(path, sb.toString(), StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
             log.infof("Created campaign journal: %s", path);
+            if (storyMemoryIndexer != null) {
+                storyMemoryIndexer.warmIndex(id);
+            }
         } catch (IOException e) {
             throw new RuntimeException("Failed to create campaign file: " + path, e);
         }
@@ -198,6 +206,27 @@ public class GameJournal {
         return result;
     }
 
+    public String getFullJournal(String campaignId) {
+        Path path = journalPath(campaignId);
+        try {
+            List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
+            int journalStart = -1;
+            for (int i = 0; i < lines.size(); i++) {
+                if (lines.get(i).trim().equals("## Journal")) {
+                    journalStart = i + 1;
+                    break;
+                }
+            }
+            if (journalStart < 0 || journalStart >= lines.size()) {
+                return "";
+            }
+            return String.join("\n", lines.subList(journalStart, lines.size())).trim();
+        } catch (IOException e) {
+            log.errorf(e, "Failed to read full journal for campaign: %s", campaignId);
+            return "";
+        }
+    }
+
     public String getRecentJournal(String campaignId, int maxLines) {
         Path path = journalPath(campaignId);
         try {
@@ -235,6 +264,9 @@ public class GameJournal {
         Path path = journalPath(campaignId);
         try {
             Files.writeString(path, content, StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+            if (storyMemoryIndexer != null) {
+                storyMemoryIndexer.requestIndex(campaignId);
+            }
         } catch (IOException e) {
             log.errorf(e, "Failed to append to journal: %s", campaignId);
         }

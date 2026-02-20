@@ -80,15 +80,22 @@ public class StringUtils {
     // id:classic/oracles/{path...} → /reference/oracles/{path...}
     private static final Pattern ORACLE_ID = Pattern.compile("id:classic/oracles/([^)]+)");
 
-    public static RawString mdToHtml(MarkdownString markdown) {
+    public static RawString mdToHtml(String markdown) {
         if (markdown == null) {
             return null;
         }
 
         MarkdownAugmenter augmenter = Arc.container().instance(MarkdownAugmenter.class).get();
-        var text = MOVE_ID.matcher(markdown.getValue()).replaceAll("/reference/moves#$1");
+        var text = MOVE_ID.matcher(markdown).replaceAll("/reference/moves#$1");
         text = ORACLE_ID.matcher(text).replaceAll("/reference/oracles#$1");
 
         return new RawString(augmenter.markdownToHtml(text));
+    }
+
+    public static RawString mdToHtml(MarkdownString markdown) {
+        if (markdown == null) {
+            return null;
+        }
+        return mdToHtml(markdown.getValue());
     }
 }

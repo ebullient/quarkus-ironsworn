@@ -17,6 +17,8 @@ import dev.ebullient.ironsworn.chat.MarkdownAugmenter;
 import dev.ebullient.ironsworn.chat.PlayAssistant;
 import dev.ebullient.ironsworn.chat.PlayMemoryProvider;
 import dev.ebullient.ironsworn.chat.PlayResponse;
+import dev.ebullient.ironsworn.memory.StoryMemoryIndexer;
+import dev.ebullient.ironsworn.memory.StoryMemoryService;
 import dev.ebullient.ironsworn.model.CharacterSheet;
 import dev.ebullient.ironsworn.model.OracleResult;
 import dev.ebullient.ironsworn.model.Outcome;
@@ -59,6 +61,12 @@ public class PlayWebSocket {
     MarkdownAugmenter prettify;
 
     @Inject
+    StoryMemoryService storyMemory;
+
+    @Inject
+    StoryMemoryIndexer storyMemoryIndexer;
+
+    @Inject
     ObjectMapper objectMapper;
 
     String campaignId;
@@ -69,6 +77,9 @@ public class PlayWebSocket {
         this.campaignId = campaignId;
         GENERATION_LOCKS.computeIfAbsent(campaignId, k -> new AtomicBoolean(false));
         Log.infof("Play WebSocket opened: %s (connection: %s)", campaignId, connection.id());
+
+        // Warm long-term story memory in the background for this campaign.
+        storyMemoryIndexer.warmIndex(campaignId);
 
         try {
             return journal.isCreationPhase(campaignId)
@@ -168,13 +179,14 @@ public class PlayWebSocket {
         String resumePrompt = endsWithPlayerEntry(existingJournal)
                 ? extractLastPlayerInput(existingJournal)
                 : "Continue the story based on what just happened.";
+        String memoryCtx = storyMemory.relevantMemory(campaignId, resumePrompt);
 
         AtomicBoolean lock = GENERATION_LOCKS.get(campaignId);
         if (lock != null && lock.compareAndSet(false, true)) {
             try {
                 connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
                         "type", "loading")));
-                PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, resumePrompt);
+                PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, memoryCtx, resumePrompt);
                 String narrative = JournalParser.sanitizeNarrative(response.narrative());
                 journal.appendNarrative(campaignId, narrative);
                 return objectMapper.writeValueAsString(Map.of(
@@ -362,8 +374,9 @@ public class PlayWebSocket {
             CharacterSheet character = journal.readCharacter(campaignId);
             String charCtx = formatCharacterContext(character);
             String journalCtx = journal.getRecentJournal(campaignId, 100);
+            String memoryCtx = storyMemory.relevantMemory(campaignId, text);
 
-            PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, text);
+            PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, memoryCtx, text);
             String narrative = JournalParser.sanitizeNarrative(response.narrative());
 
             journal.appendNarrative(campaignId, narrative);
@@ -412,7 +425,7 @@ public class PlayWebSocket {
         String moveOutcomeJson = objectMapper.writeValueAsString(Map.of(
                 "type", "move_outcome",
                 "moveName", moveName,
-                "moveOutcomeText", moveOutcomeText));
+                "moveOutcomeText", StringUtils.mdToHtml(moveOutcomeText).getValue()));
         connection.sendTextAndAwait(moveOutcomeJson);
 
         // Now get LLM narration
@@ -423,10 +436,12 @@ public class PlayWebSocket {
 
         try {
             String journalCtx = journal.getRecentJournal(campaignId, 60);
+            String memoryQuery = moveName + " " + outcome.display();
+            String memoryCtx = storyMemory.relevantMemory(campaignId, memoryQuery);
             PlayResponse response = assistant.narrateMoveResult(
                     campaignId, moveName, outcome.display(),
                     actionScore, challenge1, challenge2,
-                    moveOutcomeText, journalCtx);
+                    moveOutcomeText, journalCtx, memoryCtx);
             String narrative = JournalParser.sanitizeNarrative(response.narrative());
 
             journal.appendNarrative(campaignId, narrative);

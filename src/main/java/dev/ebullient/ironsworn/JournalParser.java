@@ -1,12 +1,56 @@
 package dev.ebullient.ironsworn;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Pure-function utilities for parsing journal markdown content.
  * Extracted from PlayWebSocket for testability.
  */
 public class JournalParser {
 
+    public record JournalExchange(int index, String content) {
+    }
+
     private JournalParser() {
+    }
+
+    /**
+     * Split journal content into embeddable exchanges.
+     * Each exchange starts with a player entry ({@code *Player: ...*}) or
+     * a mechanical entry ({@code > **...**}) and includes all following
+     * lines until the next such marker.
+     */
+    public static List<JournalExchange> parseExchanges(String journalContent) {
+        if (journalContent == null || journalContent.isBlank()) {
+            return List.of();
+        }
+
+        List<JournalExchange> exchanges = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        int index = 0;
+
+        for (String line : journalContent.split("\n")) {
+            String trimmed = line.trim();
+            if (isPlayerEntry(trimmed) || isMechanicalEntry(trimmed)) {
+                // Flush previous exchange
+                if (!current.isEmpty()) {
+                    exchanges.add(new JournalExchange(index++, current.toString().trim()));
+                    current.setLength(0);
+                }
+            }
+            if (!trimmed.isEmpty() || !current.isEmpty()) {
+                current.append(line).append("\n");
+            }
+        }
+        // Flush last exchange
+        if (!current.isEmpty()) {
+            String text = current.toString().trim();
+            if (!text.isEmpty()) {
+                exchanges.add(new JournalExchange(index, text));
+            }
+        }
+        return exchanges;
     }
 
     /**
