@@ -43,23 +43,32 @@
         <div id="narrative-area">
             <div id="chat-messages"></div>
 
-            <!-- Roll panel (hidden until move selected) -->
-            <div id="roll-panel" class="hidden">
-                <div id="roll-panel-header">
+            <div id="input-container">
+                <!-- Move badge (hidden until move selected) -->
+                <div id="move-badge" class="hidden">
                     <span id="roll-move-name"></span>
-                    <button id="roll-cancel" title="Cancel">&times;</button>
+                    <button id="roll-cancel" title="Cancel move">&times;</button>
                 </div>
-                <div id="roll-stat-prompt">Select a stat above, then:</div>
-                <div id="roll-actions">
-                    <button id="roll-btn" class="btn-primary" disabled>Roll</button>
-                    <label class="manual-toggle">
-                        <input type="checkbox" id="manual-dice-toggle"> Enter dice
-                    </label>
+                <textarea
+                    id="message-input"
+                    placeholder="What do you do?"
+                    autocomplete="off"
+                    rows="1"></textarea>
+                <div id="input-actions">
+                    <button id="send-btn">Send</button>
+                    <!-- Roll controls (hidden until move selected) -->
+                    <div id="roll-controls" class="hidden">
+                        <span id="roll-stat-prompt">Select a stat</span>
+                        <button id="roll-btn" class="btn-primary" disabled>Roll</button>
+                        <label class="manual-toggle">
+                            <input type="checkbox" id="manual-dice-toggle"> Dice
+                        </label>
+                    </div>
                 </div>
                 <div id="manual-dice" class="hidden">
                     <label>Action (d6) <input type="number" id="dice-action" min="1" max="6"></label>
-                    <label>Challenge 1 (d10) <input type="number" id="dice-c1" min="1" max="10"></label>
-                    <label>Challenge 2 (d10) <input type="number" id="dice-c2" min="1" max="10"></label>
+                    <label>C1 (d10) <input type="number" id="dice-c1" min="1" max="10"></label>
+                    <label>C2 (d10) <input type="number" id="dice-c2" min="1" max="10"></label>
                 </div>
                 <!-- Momentum burn prompt (shown dynamically) -->
                 <div id="momentum-burn" class="hidden">
@@ -67,15 +76,6 @@
                     <button id="burn-btn">Burn Momentum</button>
                     <button id="skip-burn-btn">Keep Result</button>
                 </div>
-            </div>
-
-            <div id="input-container">
-                <textarea
-                    id="message-input"
-                    placeholder="What do you do?"
-                    autocomplete="off"
-                    rows="1"></textarea>
-                <button id="send-btn">Send</button>
             </div>
         </div>
 

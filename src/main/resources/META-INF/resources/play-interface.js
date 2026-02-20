@@ -19,8 +19,9 @@ class PlayInterface {
         this.messageInput = document.getElementById('message-input');
         this.sendBtn = document.getElementById('send-btn');
         this.inputContainer = document.getElementById('input-container');
-        this.rollPanel = document.getElementById('roll-panel');
+        this.moveBadge = document.getElementById('move-badge');
         this.rollMoveNameEl = document.getElementById('roll-move-name');
+        this.rollControls = document.getElementById('roll-controls');
         this.rollBtn = document.getElementById('roll-btn');
         this.manualDiceToggle = document.getElementById('manual-dice-toggle');
         this.manualDicePanel = document.getElementById('manual-dice');
@@ -350,11 +351,13 @@ class PlayInterface {
                 if (currentBlock.length > 0) { flushBlock(); currentBlock = []; }
                 currentType = 'user';
                 currentBlock.push(trimmed.slice(9, -1).trim());
-            } else if (trimmed.startsWith('**') && trimmed.includes('→')) {
-                // Mechanical line (move result or oracle)
+            } else if (this.isMechanicalLine(trimmed)) {
+                // Mechanical line (move result or oracle) — stored as "> **Move** ..." in journal
                 if (currentBlock.length > 0 && currentType !== 'mechanical') { flushBlock(); currentBlock = []; }
                 currentType = 'mechanical';
-                currentBlock.push(trimmed);
+                // Strip blockquote prefix for display
+                const display = trimmed.startsWith('>') ? trimmed.replace(/^>\s*/, '') : trimmed;
+                currentBlock.push(display);
             } else {
                 if (currentBlock.length > 0 && currentType !== 'assistant') { flushBlock(); currentBlock = []; }
                 currentType = 'assistant';
@@ -366,6 +369,13 @@ class PlayInterface {
         }
 
         this.scrollToBottom();
+    }
+
+    isMechanicalLine(trimmed) {
+        // Journal stores mechanical entries as blockquotes: "> **Move** (+stat): ... → **Outcome**"
+        // Strip the blockquote prefix before checking
+        const content = trimmed.startsWith('>') ? trimmed.replace(/^>\s*/, '') : trimmed;
+        return content.startsWith('**') && content.includes('→');
     }
 
     addCreationGuideMessage(text) {
@@ -468,6 +478,13 @@ class PlayInterface {
     }
 
     handleSend() {
+        if (this.pendingMove) {
+            // In move mode, Enter triggers the roll (if stat selected)
+            if (this.selectedStat) {
+                this.executeRoll();
+            }
+            return;
+        }
         if (this.creationMode) {
             this.sendCreationChat();
         } else {
@@ -671,13 +688,19 @@ class PlayInterface {
         };
         this.selectedStat = null;
 
+        // Enhance the input container with move controls
         this.rollMoveNameEl.textContent = this.pendingMove.name;
-        this.rollPanel.classList.remove('hidden');
+        this.moveBadge.classList.remove('hidden');
+        this.rollControls.classList.remove('hidden');
+        this.sendBtn.classList.add('hidden');
         this.rollBtn.disabled = true;
-        document.getElementById('roll-stat-prompt').textContent = 'Select a stat above:';
+        this.inputContainer.classList.add('move-mode');
+        document.getElementById('roll-stat-prompt').textContent = 'Select a stat';
+        this.messageInput.placeholder = 'How do you ' + this.pendingMove.name + '?';
 
         document.querySelectorAll('.stat-btn').forEach(b => b.classList.add('selectable'));
         this.sidebar.classList.remove('open');
+        this.messageInput.focus();
     }
 
     selectStat(stat) {
@@ -726,6 +749,12 @@ class PlayInterface {
 
         const actionScore = Math.min(10, actionDie + statValue);
         const outcome = this.computeOutcome(actionScore, challenge1, challenge2);
+
+        // Show player's action description before the mechanical result
+        const playerAction = this.messageInput.value.trim();
+        if (playerAction) {
+            this.addUserMessage(playerAction);
+        }
 
         const outcomeClass = outcome.replace('_', '-').toLowerCase();
         this.addMechanicalMessage(
@@ -806,6 +835,7 @@ class PlayInterface {
         this.disableInput();
         this.addLoadingIndicator();
 
+        const playerAction = this.messageInput.value.trim();
         this.send({
             type: 'move_result',
             categoryKey: this.pendingMove.category,
@@ -817,7 +847,8 @@ class PlayInterface {
             challenge1,
             challenge2,
             actionScore,
-            outcome
+            outcome,
+            playerAction
         });
 
         this.cancelMove();
@@ -826,10 +857,17 @@ class PlayInterface {
     cancelMove() {
         this.pendingMove = null;
         this.selectedStat = null;
-        this.rollPanel.classList.add('hidden');
+        // Restore input container to normal mode
+        this.moveBadge.classList.add('hidden');
+        this.rollControls.classList.add('hidden');
+        this.sendBtn.classList.remove('hidden');
+        this.inputContainer.classList.remove('move-mode');
         this.momentumBurnPanel.classList.add('hidden');
         this.manualDiceToggle.checked = false;
         this.manualDicePanel.classList.add('hidden');
+        this.messageInput.value = '';
+        this.messageInput.style.height = 'auto';
+        this.messageInput.placeholder = this.creationMode ? 'Tell the guide about your character...' : 'What do you do?';
         document.querySelectorAll('.stat-btn').forEach(b => {
             b.classList.remove('selectable', 'selected');
         });

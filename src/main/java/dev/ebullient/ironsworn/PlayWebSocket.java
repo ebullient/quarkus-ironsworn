@@ -175,11 +175,12 @@ public class PlayWebSocket {
                 connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
                         "type", "loading")));
                 PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, resumePrompt);
-                journal.appendNarrative(campaignId, response.narrative());
+                String narrative = JournalParser.sanitizeNarrative(response.narrative());
+                journal.appendNarrative(campaignId, narrative);
                 return objectMapper.writeValueAsString(Map.of(
                         "type", "narrative",
-                        "narrative", response.narrative(),
-                        "narrativeHtml", prettify.markdownToHtml(response.narrative()),
+                        "narrative", narrative,
+                        "narrativeHtml", prettify.markdownToHtml(narrative),
                         "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
                         "location", response.location() != null ? response.location() : ""));
             } finally {
@@ -363,13 +364,14 @@ public class PlayWebSocket {
             String journalCtx = journal.getRecentJournal(campaignId, 100);
 
             PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, text);
+            String narrative = JournalParser.sanitizeNarrative(response.narrative());
 
-            journal.appendNarrative(campaignId, response.narrative());
+            journal.appendNarrative(campaignId, narrative);
 
             return objectMapper.writeValueAsString(Map.of(
                     "type", "narrative",
-                    "narrative", response.narrative(),
-                    "narrativeHtml", prettify.markdownToHtml(response.narrative()),
+                    "narrative", narrative,
+                    "narrativeHtml", prettify.markdownToHtml(narrative),
                     "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
                     "location", response.location() != null ? response.location() : ""));
         } finally {
@@ -389,6 +391,12 @@ public class PlayWebSocket {
         int actionScore = msg.path("actionScore").asInt();
         String outcomeStr = msg.path("outcome").asText();
         Outcome outcome = Outcome.valueOf(outcomeStr);
+
+        // Journal the player's action description (if provided) before the roll
+        String playerAction = msg.path("playerAction").asText("").trim();
+        if (!playerAction.isEmpty()) {
+            journal.appendNarrative(campaignId, "*Player: " + playerAction + "*");
+        }
 
         // Journal the roll
         String moveName = moveKey.replace("_", " ");
@@ -419,13 +427,14 @@ public class PlayWebSocket {
                     campaignId, moveName, outcome.display(),
                     actionScore, challenge1, challenge2,
                     moveOutcomeText, journalCtx);
+            String narrative = JournalParser.sanitizeNarrative(response.narrative());
 
-            journal.appendNarrative(campaignId, response.narrative());
+            journal.appendNarrative(campaignId, narrative);
 
             return objectMapper.writeValueAsString(Map.of(
                     "type", "narrative",
-                    "narrative", response.narrative(),
-                    "narrativeHtml", prettify.markdownToHtml(response.narrative()),
+                    "narrative", narrative,
+                    "narrativeHtml", prettify.markdownToHtml(narrative),
                     "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
                     "location", response.location() != null ? response.location() : ""));
         } finally {
@@ -490,49 +499,19 @@ public class PlayWebSocket {
     }
 
     private String extractLastPlayerInput(String journalContent) {
-        String last = null;
-        for (String line : journalContent.split("\n")) {
-            String trimmed = line.trim();
-            if (trimmed.startsWith("*Player:") && trimmed.endsWith("*")) {
-                // Strip the *Player: ...* wrapper
-                last = trimmed.substring(8, trimmed.length() - 1).trim();
-            }
-        }
-        return last;
+        return JournalParser.extractLastPlayerInput(journalContent);
     }
 
     private boolean needsNarration(String journalContent) {
-        // True if the last non-blank line is a player entry or a mechanical result
-        String[] lines = journalContent.split("\n");
-        for (int i = lines.length - 1; i >= 0; i--) {
-            String trimmed = lines[i].trim();
-            if (!trimmed.isEmpty()) {
-                return (trimmed.startsWith("*Player:") && trimmed.endsWith("*"))
-                        || trimmed.startsWith("> **");
-            }
-        }
-        return false;
+        return JournalParser.needsNarration(journalContent);
     }
 
     private boolean endsWithPlayerEntry(String journalContent) {
-        String[] lines = journalContent.split("\n");
-        for (int i = lines.length - 1; i >= 0; i--) {
-            String trimmed = lines[i].trim();
-            if (!trimmed.isEmpty()) {
-                return trimmed.startsWith("*Player:") && trimmed.endsWith("*");
-            }
-        }
-        return false;
+        return JournalParser.endsWithPlayerEntry(journalContent);
     }
 
     private int countExchanges(String journalContext) {
-        int count = 0;
-        for (String line : journalContext.split("\n")) {
-            if (line.trim().startsWith("*Player:")) {
-                count++;
-            }
-        }
-        return count;
+        return JournalParser.countExchanges(journalContext);
     }
 
     private String formatCharacterContext(CharacterSheet c) {
