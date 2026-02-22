@@ -1,0 +1,15 @@
+## Move Result
+**Move**: {moveName}
+**Outcome**: {outcome}
+**Roll**: Action {actionScore} vs Challenge {challenge1}/{challenge2}
+
+## What the move says on {outcome}:
+{moveOutcomeText}
+
+## Recent Journal
+{journalContext}
+
+## Relevant Story Memory (retrieved from earlier journal entries)
+{memoryContext}
+
+Narrate what happens.

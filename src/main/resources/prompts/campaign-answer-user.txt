@@ -1,0 +1,11 @@
+## Current Character
+{characterContext}
+
+## Recent Journal
+{journalContext}
+
+## Relevant Story Memory (retrieved from earlier journal entries)
+{memoryContext}
+
+## Question
+{question}

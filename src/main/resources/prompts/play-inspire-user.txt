@@ -1,0 +1,10 @@
+## Current Character
+{characterContext}
+
+## Recent Journal
+{journalContext}
+
+## Relevant Story Memory
+{memoryContext}
+
+The player asks: what happens next? Use the oracle to inspire the next beat.

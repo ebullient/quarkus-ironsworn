@@ -1,0 +1,11 @@
+## Character
+Name: {name}
+Stats: Edge {edge}, Heart {heart}, Iron {iron}, Shadow {shadow}, Wits {wits}
+
+## Conversation so far (player has responded {exchangeCount} times)
+{journalContext}
+
+## Player says
+{playerInput}
+
+{vowInstruction}
