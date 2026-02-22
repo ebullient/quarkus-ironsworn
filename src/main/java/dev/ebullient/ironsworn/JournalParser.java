@@ -155,6 +155,14 @@ public class JournalParser {
      * or: {@code > **Oracle** (Collection / Table): roll → result}
      */
     public static boolean isMechanicalEntry(String trimmedLine) {
-        return trimmedLine.startsWith("> **");
+        if (trimmedLine == null) {
+            return false;
+        }
+        String trimmed = trimmedLine.trim();
+        if (!trimmed.startsWith(">")) {
+            return false;
+        }
+        String afterBlockquote = trimmed.substring(1).stripLeading();
+        return afterBlockquote.startsWith("**");
     }
 }

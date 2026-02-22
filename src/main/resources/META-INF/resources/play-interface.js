@@ -29,6 +29,8 @@ class PlayInterface {
         this.drawerToggle = document.getElementById('drawer-toggle');
         this.sidebar = document.getElementById('sidebar');
 
+        this.inspireBtn = document.getElementById('inspire-btn');
+
         this.initWebSocket();
         this.initInput();
         this.initMoveButtons();
@@ -36,6 +38,7 @@ class PlayInterface {
         this.initRollPanel();
         this.initDrawer();
         this.initMeters();
+        this.initInspire();
     }
 
     // --- WebSocket ---
@@ -117,7 +120,12 @@ class PlayInterface {
         // Hide gameplay chrome during creation
         document.getElementById('character-bar').classList.add('hidden');
         document.getElementById('scene-bar').classList.add('hidden');
-        if (this.drawerToggle) this.drawerToggle.classList.add('hidden');
+        if (this.drawerToggle) {
+            this.drawerToggle.classList.add('hidden');
+        }
+        if (this.inspireBtn) {
+            this.inspireBtn.classList.add('hidden');
+        }
         // Repurpose the input for backstory chat
         this.messageInput.placeholder = 'Tell the guide about your character...';
         this.sendBtn.textContent = 'Send';
@@ -127,7 +135,12 @@ class PlayInterface {
         this.creationMode = false;
         document.getElementById('character-bar').classList.remove('hidden');
         document.getElementById('scene-bar').classList.remove('hidden');
-        if (this.drawerToggle) this.drawerToggle.classList.remove('hidden');
+        if (this.drawerToggle) {
+            this.drawerToggle.classList.remove('hidden');
+        }
+        if (this.inspireBtn) {
+            this.inspireBtn.classList.remove('hidden');
+        }
         this.messageInput.placeholder = 'What do you do?';
         this.sendBtn.textContent = 'Send';
         // Remove interactive creation widgets (stats, vow) but keep conversation messages
@@ -720,6 +733,9 @@ class PlayInterface {
         this.moveBadge.classList.remove('hidden');
         this.rollControls.classList.remove('hidden');
         this.sendBtn.classList.add('hidden');
+        if (this.inspireBtn) {
+            this.inspireBtn.classList.add('hidden');
+        }
         this.rollBtn.disabled = true;
         this.inputContainer.classList.add('move-mode');
         document.getElementById('roll-stat-prompt').textContent = 'Select a stat';
@@ -889,6 +905,9 @@ class PlayInterface {
         this.moveBadge.classList.add('hidden');
         this.rollControls.classList.add('hidden');
         this.sendBtn.classList.remove('hidden');
+        if (this.inspireBtn) {
+            this.inspireBtn.classList.remove('hidden');
+        }
         this.inputContainer.classList.remove('move-mode');
         this.momentumBurnPanel.classList.add('hidden');
         this.manualDiceToggle.checked = false;
@@ -913,6 +932,20 @@ class PlayInterface {
                 });
             });
         });
+    }
+
+    // --- Inspire ---
+
+    initInspire() {
+        if (this.inspireBtn) {
+            this.inspireBtn.addEventListener('click', () => this.sendInspire());
+        }
+    }
+
+    sendInspire() {
+        this.disableInput();
+        this.addLoadingIndicator();
+        this.send({ type: 'inspire' });
     }
 
     // --- Bottom drawer (narrow screens) ---

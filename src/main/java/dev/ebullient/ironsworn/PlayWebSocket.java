@@ -13,6 +13,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import dev.ebullient.ironsworn.chat.CreationAssistant;
 import dev.ebullient.ironsworn.chat.CreationResponse;
+import dev.ebullient.ironsworn.chat.InspireOracleChoice;
+import dev.ebullient.ironsworn.chat.InspireOracleSelector;
 import dev.ebullient.ironsworn.chat.MarkdownAugmenter;
 import dev.ebullient.ironsworn.chat.PlayAssistant;
 import dev.ebullient.ironsworn.chat.PlayMemoryProvider;
@@ -44,6 +46,9 @@ public class PlayWebSocket {
 
     @Inject
     PlayAssistant assistant;
+
+    @Inject
+    InspireOracleSelector oracleSelector;
 
     @Inject
     CreationAssistant creationAssistant;
@@ -187,7 +192,7 @@ public class PlayWebSocket {
                 connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
                         "type", "loading")));
                 PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, memoryCtx, resumePrompt);
-                String narrative = JournalParser.sanitizeNarrative(response.narrative());
+                String narrative = extractAndJournalOracles(JournalParser.sanitizeNarrative(response.narrative()));
                 journal.appendNarrative(campaignId, narrative);
                 return objectMapper.writeValueAsString(Map.of(
                         "type", "narrative",
@@ -228,6 +233,7 @@ public class PlayWebSocket {
                 // Gameplay flow
                 case "narrative" -> handleNarrative(msg);
                 case "move_result" -> handleMoveResult(msg);
+                case "inspire" -> handleInspireMe();
                 case "oracle" -> handleOracle(msg);
                 case "oracle_manual" -> handleOracleManual(msg);
                 case "progress_mark" -> handleProgressMark(msg);
@@ -377,7 +383,7 @@ public class PlayWebSocket {
             String memoryCtx = storyMemory.relevantMemory(campaignId, text);
 
             PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, memoryCtx, text);
-            String narrative = JournalParser.sanitizeNarrative(response.narrative());
+            String narrative = extractAndJournalOracles(JournalParser.sanitizeNarrative(response.narrative()));
 
             journal.appendNarrative(campaignId, narrative);
 
@@ -392,6 +398,136 @@ public class PlayWebSocket {
                 lock.set(false);
             }
         }
+    }
+
+    private String handleInspireMe() throws Exception {
+        AtomicBoolean lock = GENERATION_LOCKS.get(campaignId);
+        if (lock != null && !lock.compareAndSet(false, true)) {
+            return errorJson("Generation already in progress");
+        }
+
+        try {
+            CharacterSheet character = journal.readCharacter(campaignId);
+            String charCtx = formatCharacterContext(character);
+            String journalCtx = journal.getRecentJournal(campaignId, 100);
+            String memoryCtx = storyMemory.relevantMemory(campaignId, "what happens next");
+
+            // Let the model choose WHICH oracle to roll, then roll it server-side.
+            // This preserves the "interesting reasoning" while avoiding reliance on model tool-calling output.
+            InspireOracleChoice choice = null;
+            try {
+                choice = oracleSelector.chooseForInspiration(campaignId, charCtx, journalCtx, memoryCtx);
+            } catch (Exception e) {
+                Log.warnf(e, "Failed to choose oracle; using turning_point");
+            }
+
+            String collectionKey = InspireOracleSelector.normalizeOracleKey(choice != null ? choice.collectionKey() : null);
+            String tableKey = InspireOracleSelector.normalizeOracleTable(collectionKey,
+                    choice != null ? choice.tableKey() : null);
+            if (choice != null && choice.reason() != null && !choice.reason().isBlank()) {
+                Log.debugf("%s: Inspire oracle choice %s/%s (%s)", campaignId, collectionKey, tableKey, choice.reason());
+            } else {
+                Log.debugf("%s: Inspire oracle choice %s/%s", campaignId, collectionKey, tableKey);
+            }
+
+            OracleResult oracle = mechanics.rollOracle(collectionKey, tableKey);
+            journal.appendMechanical(campaignId, oracle.toJournalEntry());
+            connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
+                    "type", "oracle_result",
+                    "result", oracle)));
+
+            // Refresh journal context so the inspire prompt includes the oracle that was just rolled.
+            journalCtx = journal.getRecentJournal(campaignId, 100);
+            String inspireJournalCtx = buildInspireJournalContext(journalCtx);
+            // Clear chat memory so the LLM relies on the current system+user prompt (journal context is included there).
+            memoryProvider.clear(campaignId);
+            PlayResponse response = assistant.inspire(campaignId, charCtx, inspireJournalCtx, memoryCtx);
+            String narrative = stripOracleLines(JournalParser.sanitizeNarrative(response.narrative()));
+            journal.appendNarrative(campaignId, narrative);
+
+            return objectMapper.writeValueAsString(Map.of(
+                    "type", "narrative",
+                    "narrative", narrative,
+                    "narrativeHtml", prettify.markdownToHtml(narrative),
+                    "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
+                    "location", response.location() != null ? response.location() : ""));
+        } finally {
+            if (lock != null) {
+                lock.set(false);
+            }
+        }
+    }
+
+    private String buildInspireJournalContext(String journalCtx) {
+        if (journalCtx == null || journalCtx.isBlank()) {
+            return "";
+        }
+        List<JournalParser.JournalExchange> exchanges = JournalParser.parseExchanges(journalCtx);
+
+        String sceneAnchor = extractSceneAnchor(exchanges);
+        String recent = exchanges.size() <= 3
+                ? journalCtx
+                : joinLastExchanges(exchanges, 3);
+
+        if (sceneAnchor.isBlank()) {
+            return recent;
+        }
+        return """
+                SCENE ANCHOR (continue from here; do not change time/place):
+                %s
+
+                RECENT JOURNAL:
+                %s
+                """.formatted(sceneAnchor, recent).trim();
+    }
+
+    private String joinLastExchanges(List<JournalParser.JournalExchange> exchanges, int n) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = Math.max(0, exchanges.size() - n); i < exchanges.size(); i++) {
+            if (!sb.isEmpty()) {
+                sb.append("\n\n");
+            }
+            sb.append(exchanges.get(i).content());
+        }
+        return sb.toString().trim();
+    }
+
+    private String extractSceneAnchor(List<JournalParser.JournalExchange> exchanges) {
+        if (exchanges == null || exchanges.isEmpty()) {
+            return "";
+        }
+
+        for (int i = exchanges.size() - 1; i >= 0; i--) {
+            String content = exchanges.get(i).content();
+            if (content == null || content.isBlank()) {
+                continue;
+            }
+
+            List<String> narrativeLines = content.lines()
+                    .map(String::trim)
+                    .filter(l -> !l.isBlank())
+                    .filter(l -> !JournalParser.isMechanicalEntry(l))
+                    .filter(l -> !JournalParser.isPlayerEntry(l))
+                    .toList();
+
+            if (narrativeLines.isEmpty()) {
+                continue;
+            }
+
+            String narrative = String.join("\n", narrativeLines).trim();
+            if (!narrative.isBlank()) {
+                // Use the last paragraph as the anchor (most immediate moment).
+                String[] paras = narrative.split("\\n\\s*\\n");
+                for (int p = paras.length - 1; p >= 0; p--) {
+                    String para = paras[p].trim();
+                    if (!para.isBlank()) {
+                        return para;
+                    }
+                }
+                return narrative;
+            }
+        }
+        return "";
     }
 
     private String handleMoveResult(JsonNode msg) throws Exception {
@@ -442,7 +578,7 @@ public class PlayWebSocket {
                     campaignId, moveName, outcome.display(),
                     actionScore, challenge1, challenge2,
                     moveOutcomeText, journalCtx, memoryCtx);
-            String narrative = JournalParser.sanitizeNarrative(response.narrative());
+            String narrative = extractAndJournalOracles(JournalParser.sanitizeNarrative(response.narrative()));
 
             journal.appendNarrative(campaignId, narrative);
 
@@ -543,6 +679,50 @@ public class PlayWebSocket {
             }
         }
         return sb.toString();
+    }
+
+    /**
+     * Extract oracle blockquote lines from narrative text and journal them as mechanical entries.
+     * This handles the case where the LLM embeds oracle results in its text response
+     * (instead of using proper tool calling). Returns the narrative with oracle lines removed.
+     */
+    private String extractAndJournalOracles(String narrative) {
+        StringBuilder cleaned = new StringBuilder();
+        for (String line : narrative.split("\n")) {
+            String trimmed = line.trim();
+            String withoutBlockquote = trimmed.startsWith(">")
+                    ? trimmed.substring(1).stripLeading()
+                    : trimmed;
+            String withoutListMarker = withoutBlockquote.startsWith("- ")
+                    ? withoutBlockquote.substring(2).stripLeading()
+                    : withoutBlockquote;
+            if (withoutListMarker.startsWith("**Oracle**") || withoutListMarker.startsWith("**Oracle:**")) {
+                journal.appendMechanical(campaignId, withoutListMarker.trim());
+            } else {
+                cleaned.append(line).append("\n");
+            }
+        }
+        return cleaned.toString().trim();
+    }
+
+    private String stripOracleLines(String narrative) {
+        if (narrative == null || narrative.isBlank()) {
+            return "";
+        }
+        StringBuilder cleaned = new StringBuilder();
+        for (String line : narrative.split("\n")) {
+            String trimmed = line.trim();
+            String withoutBlockquote = trimmed.startsWith(">")
+                    ? trimmed.substring(1).stripLeading()
+                    : trimmed;
+            String withoutListMarker = withoutBlockquote.startsWith("- ")
+                    ? withoutBlockquote.substring(2).stripLeading()
+                    : withoutBlockquote;
+            if (!withoutListMarker.startsWith("**Oracle**") && !withoutListMarker.startsWith("**Oracle:**")) {
+                cleaned.append(line).append("\n");
+            }
+        }
+        return cleaned.toString().trim();
     }
 
     private String errorJson(String message) {

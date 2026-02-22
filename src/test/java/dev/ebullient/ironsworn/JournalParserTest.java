@@ -48,6 +48,18 @@ class JournalParserTest {
     }
 
     @Test
+    void isMechanicalEntry_oracleResult_withoutSpaceAfterBlockquote() {
+        assertTrue(JournalParser.isMechanicalEntry(
+                ">**Oracle** (Action / Theme): 42 → Discovery"));
+    }
+
+    @Test
+    void isMechanicalEntry_oracleResult_withExtraSpacesAfterBlockquote() {
+        assertTrue(JournalParser.isMechanicalEntry(
+                ">   **Oracle** (Action / Theme): 42 → Discovery"));
+    }
+
+    @Test
     void isMechanicalEntry_weakHit() {
         assertTrue(JournalParser.isMechanicalEntry(
                 "> **Secure an Advantage** (+wits): Action 4, Challenge 6|2 → **Weak hit**"));
