@@ -36,6 +36,7 @@ public interface PlayAssistant {
     @UserMessage(fromResource = "prompts/play-inspire-user.txt")
     PlayResponse inspire(
             @MemoryId String campaignId,
+            String oracleResult,
             String characterContext,
             String journalContext,
             String memoryContext);

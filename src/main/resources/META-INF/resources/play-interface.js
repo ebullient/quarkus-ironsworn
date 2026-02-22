@@ -281,115 +281,32 @@ class PlayInterface {
     }
 
     handleCreationResume(msg) {
-        // Replay journal content as conversation messages
-        const lines = (msg.journalContent || '').split('\n');
-        let currentBlock = [];
-
-        const flushBlock = (isPlayer) => {
-            const text = currentBlock.join('\n').trim();
-            if (!text) return;
+        for (const block of (msg.blocks || [])) {
             const div = document.createElement('div');
-            div.className = 'message creation-widget ' + (isPlayer ? 'user' : 'assistant');
-            div.textContent = text;
-            this.chatContainer.appendChild(div);
-        };
-
-        let inPlayerBlock = false;
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed) {
-                if (currentBlock.length > 0) {
-                    flushBlock(inPlayerBlock);
-                    currentBlock = [];
-                }
-                continue;
-            }
-            // Player lines are wrapped in *Player: ...*
-            if (trimmed.startsWith('*Player:') && trimmed.endsWith('*')) {
-                if (currentBlock.length > 0) {
-                    flushBlock(inPlayerBlock);
-                    currentBlock = [];
-                }
-                inPlayerBlock = true;
-                currentBlock.push(trimmed.slice(9, -1).trim());
+            div.className = 'message creation-widget ' + (block.type || 'assistant');
+            if (block.type === 'user') {
+                div.textContent = block.html;
             } else {
-                if (inPlayerBlock && currentBlock.length > 0) {
-                    flushBlock(true);
-                    currentBlock = [];
-                }
-                inPlayerBlock = false;
-                currentBlock.push(trimmed);
+                div.innerHTML = block.html;
             }
+            this.chatContainer.appendChild(div);
         }
-        if (currentBlock.length > 0) {
-            flushBlock(inPlayerBlock);
-        }
-
         this.scrollToBottom();
         // Stats widget will be injected by the subsequent creation_ready message
     }
 
     handlePlayResume(msg) {
-        const lines = (msg.journalContent || '').split('\n');
-        let currentBlock = [];
-        let currentType = null; // 'user', 'assistant', 'mechanical'
-
-        const flushBlock = () => {
-            const text = currentBlock.join('\n').trim();
-            if (!text) return;
+        for (const block of (msg.blocks || [])) {
             const div = document.createElement('div');
-            if (currentType === 'user') {
-                div.className = 'message user';
-                div.textContent = text;
-            } else if (currentType === 'mechanical') {
-                div.className = 'message mechanical';
-                div.innerHTML = text;
+            div.className = 'message ' + (block.type || 'assistant');
+            if (block.type === 'user') {
+                div.textContent = block.html;
             } else {
-                div.className = 'message assistant';
-                div.textContent = text;
+                div.innerHTML = block.html;
             }
             this.chatContainer.appendChild(div);
-        };
-
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed) {
-                if (currentBlock.length > 0) {
-                    flushBlock();
-                    currentBlock = [];
-                    currentType = null;
-                }
-                continue;
-            }
-            if (trimmed.startsWith('*Player:') && trimmed.endsWith('*')) {
-                if (currentBlock.length > 0) { flushBlock(); currentBlock = []; }
-                currentType = 'user';
-                currentBlock.push(trimmed.slice(9, -1).trim());
-            } else if (this.isMechanicalLine(trimmed)) {
-                // Mechanical line (move result or oracle) — stored as "> **Move** ..." in journal
-                if (currentBlock.length > 0 && currentType !== 'mechanical') { flushBlock(); currentBlock = []; }
-                currentType = 'mechanical';
-                // Strip blockquote prefix for display
-                const display = trimmed.startsWith('>') ? trimmed.replace(/^>\s*/, '') : trimmed;
-                currentBlock.push(display);
-            } else {
-                if (currentBlock.length > 0 && currentType !== 'assistant') { flushBlock(); currentBlock = []; }
-                currentType = 'assistant';
-                currentBlock.push(trimmed);
-            }
         }
-        if (currentBlock.length > 0) {
-            flushBlock();
-        }
-
         this.scrollToBottom();
-    }
-
-    isMechanicalLine(trimmed) {
-        // Journal stores mechanical entries as blockquotes: "> **Move** (+stat): ... → **Outcome**"
-        // Strip the blockquote prefix before checking
-        const content = trimmed.startsWith('>') ? trimmed.replace(/^>\s*/, '') : trimmed;
-        return content.startsWith('**') && content.includes('→');
     }
 
     addCreationGuideMessage(text) {

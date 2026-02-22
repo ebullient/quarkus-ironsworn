@@ -1,6 +1,3 @@
-## Oracle Result
-{oracleResult}
-
 ## Current Character
 {characterContext}
 
@@ -10,4 +7,4 @@
 ## Relevant Story Memory
 {memoryContext}
 
-Narrate the next beat using the oracle result above as inspiration.
+Roll an oracle and narrate the next beat.

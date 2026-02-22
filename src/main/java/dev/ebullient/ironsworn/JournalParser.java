@@ -3,6 +3,8 @@ package dev.ebullient.ironsworn;
 import java.util.ArrayList;
 import java.util.List;
 
+import dev.ebullient.ironsworn.chat.MarkdownAugmenter;
+
 /**
  * Pure-function utilities for parsing journal markdown content.
  * Extracted from PlayWebSocket for testability.
@@ -10,6 +12,10 @@ import java.util.List;
 public class JournalParser {
 
     public record JournalExchange(int index, String content) {
+    }
+
+    /** A typed block of journal content with pre-rendered HTML. */
+    public record JournalBlock(String type, String html) {
     }
 
     private JournalParser() {
@@ -164,5 +170,83 @@ public class JournalParser {
         }
         String afterBlockquote = trimmed.substring(1).stripLeading();
         return afterBlockquote.startsWith("**");
+    }
+
+    /**
+     * Parse journal content into typed blocks with pre-rendered HTML.
+     * Each block has a type ("user", "assistant", or "mechanical") and
+     * HTML content ready for display.
+     */
+    public static List<JournalBlock> parseToBlocks(String journalContent, MarkdownAugmenter augmenter) {
+        if (journalContent == null || journalContent.isBlank()) {
+            return List.of();
+        }
+
+        List<JournalBlock> blocks = new ArrayList<>();
+        List<String> currentLines = new ArrayList<>();
+        String currentType = null; // "user", "assistant", "mechanical"
+
+        for (String line : journalContent.split("\n")) {
+            String trimmed = line.trim();
+
+            if (trimmed.isEmpty()) {
+                if (!currentLines.isEmpty()) {
+                    blocks.add(flushBlock(currentType, currentLines, augmenter));
+                    currentLines.clear();
+                    currentType = null;
+                }
+                continue;
+            }
+
+            if (isPlayerEntry(trimmed)) {
+                if (!currentLines.isEmpty()) {
+                    blocks.add(flushBlock(currentType, currentLines, augmenter));
+                    currentLines.clear();
+                }
+                currentType = "user";
+                currentLines.add(trimmed.substring(8, trimmed.length() - 1).trim()); // strip *Player: ...*
+            } else if (isMechanicalEntry(trimmed)) {
+                if (!currentLines.isEmpty() && !"mechanical".equals(currentType)) {
+                    blocks.add(flushBlock(currentType, currentLines, augmenter));
+                    currentLines.clear();
+                }
+                currentType = "mechanical";
+                // Strip blockquote prefix for display
+                String display = trimmed.startsWith(">") ? trimmed.replaceFirst("^>\\s*", "") : trimmed;
+                currentLines.add(display);
+            } else {
+                if (!currentLines.isEmpty() && !"assistant".equals(currentType)) {
+                    blocks.add(flushBlock(currentType, currentLines, augmenter));
+                    currentLines.clear();
+                }
+                currentType = "assistant";
+                currentLines.add(line);
+            }
+        }
+
+        if (!currentLines.isEmpty()) {
+            blocks.add(flushBlock(currentType, currentLines, augmenter));
+        }
+
+        return blocks;
+    }
+
+    private static JournalBlock flushBlock(String type, List<String> lines, MarkdownAugmenter augmenter) {
+        String text = String.join("\n", lines).trim();
+        if (type == null) {
+            type = "assistant";
+        }
+        String html = switch (type) {
+            case "user" -> escapeHtml(text);
+            case "mechanical" -> augmenter.markdownToHtml(text);
+            default -> augmenter.markdownToHtml(text);
+        };
+        return new JournalBlock(type, html);
+    }
+
+    private static String escapeHtml(String text) {
+        return text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;");
     }
 }
