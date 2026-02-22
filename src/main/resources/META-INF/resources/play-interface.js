@@ -281,24 +281,30 @@ class PlayInterface {
     }
 
     handleCreationResume(msg) {
-        for (const block of (msg.blocks || [])) {
-            const div = document.createElement('div');
-            div.className = 'message creation-widget ' + (block.type || 'assistant');
-            if (block.type === 'user') {
-                div.textContent = block.html;
-            } else {
-                div.innerHTML = block.html;
-            }
-            this.chatContainer.appendChild(div);
-        }
-        this.scrollToBottom();
+        this.appendBlocks((msg.blocks || []), 'creation-widget');
         // Stats widget will be injected by the subsequent creation_ready message
     }
 
     handlePlayResume(msg) {
-        for (const block of (msg.blocks || [])) {
+        this.appendBlocks((msg.blocks || []));
+    }
+
+    appendBlocks(blocks, extraClass) {
+        const grouped = [];
+        for (const block of (blocks || [])) {
+            const type = block.type || 'assistant';
+            const html = block.html || '';
+            const last = grouped.length > 0 ? grouped[grouped.length - 1] : null;
+            if (type === 'assistant' && last && last.type === 'assistant') {
+                last.html += '\n' + html;
+            } else {
+                grouped.push({ type, html });
+            }
+        }
+
+        for (const block of grouped) {
             const div = document.createElement('div');
-            div.className = 'message ' + (block.type || 'assistant');
+            div.className = 'message ' + (extraClass ? (extraClass + ' ') : '') + (block.type || 'assistant');
             if (block.type === 'user') {
                 div.textContent = block.html;
             } else {
@@ -513,7 +519,11 @@ class PlayInterface {
 
     handleNarrative(msg) {
         this.removeLoadingIndicator();
-        this.addNarrativeMessage(msg.narrativeHtml || msg.narrative);
+        if (msg.blocks && msg.blocks.length > 0) {
+            this.appendBlocks(msg.blocks);
+        } else {
+            this.addNarrativeMessage(msg.narrativeHtml || msg.narrative);
+        }
         if (msg.location) {
             document.getElementById('scene-location').textContent = msg.location;
         }

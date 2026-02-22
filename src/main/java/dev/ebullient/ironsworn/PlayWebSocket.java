@@ -201,6 +201,7 @@ public class PlayWebSocket {
                         "type", "narrative",
                         "narrative", narrative,
                         "narrativeHtml", prettify.markdownToHtml(narrative),
+                        "blocks", blocksForNarrative(narrative),
                         "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
                         "location", response.location() != null ? response.location() : ""));
             } finally {
@@ -395,6 +396,7 @@ public class PlayWebSocket {
                     "type", "narrative",
                     "narrative", narrative,
                     "narrativeHtml", prettify.markdownToHtml(narrative),
+                    "blocks", blocksForNarrative(narrative),
                     "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
                     "location", response.location() != null ? response.location() : ""));
         } finally {
@@ -434,6 +436,7 @@ public class PlayWebSocket {
                     "type", "narrative",
                     "narrative", result.narrative(),
                     "narrativeHtml", prettify.markdownToHtml(result.narrative()),
+                    "blocks", blocksForNarrative(result.narrative()),
                     "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
                     "location", response.location() != null ? response.location() : ""));
         } finally {
@@ -500,6 +503,7 @@ public class PlayWebSocket {
                     "type", "narrative",
                     "narrative", narrative,
                     "narrativeHtml", prettify.markdownToHtml(narrative),
+                    "blocks", blocksForNarrative(narrative),
                     "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
                     "location", response.location() != null ? response.location() : ""));
         } finally {
@@ -577,6 +581,13 @@ public class PlayWebSocket {
 
     private int countExchanges(String journalContext) {
         return JournalParser.countExchanges(journalContext);
+    }
+
+    private List<JournalParser.JournalBlock> blocksForNarrative(String narrative) {
+        if (narrative == null || narrative.isBlank()) {
+            return List.of();
+        }
+        return JournalParser.parseToBlocks(narrative, prettify);
     }
 
     private String formatCharacterContext(CharacterSheet c) {
