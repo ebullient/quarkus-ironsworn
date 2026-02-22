@@ -15,11 +15,26 @@
     border-left: 4px solid var(--color-border-user);
   }
 
+  // Collapse gap between consecutive same-type messages
+  &.assistant + .message.assistant,
+  &.user + .message.user {
+    margin-top: calc(-1 * var(--spacing-md));
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+
+  // Round bottom corners only on the last in a consecutive run
+  &.assistant:has(+ .message.assistant),
+  &.user:has(+ .message.user) {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
   // Assistant/AI messages
   &.assistant {
-    background: var(--color-bg-assistant);
+    //background: var(--color-bg-assistant);
     align-self: flex-start;
-    border-left: 4px solid var(--color-border-assistant);
+    //border-left: 4px solid var(--color-border-assistant);
 
     // Rich content formatting
     p {

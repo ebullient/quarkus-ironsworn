@@ -1,5 +1,5 @@
 /**
- * Generic chat interface module for D&D Campaign Assistant.
+ * Generic chat interface module.
  * Handles message display, user input, and API communication.
  */
 class ChatInterface {

@@ -1,0 +1,57 @@
+{#include base}
+    {#title}Campaign Assistant — {campaign.name}{/title}
+
+    {#stylesheets}
+    <link rel="stylesheet" href="/chat.css">
+    {/stylesheets}
+
+    {#scripts}
+    <script src="/chat-interface.js"></script>
+    {/scripts}
+
+    {#header-title}Campaign Assistant{/header-title}
+    {#header-subtitle}<span class="campaign-name">{campaign.name}</span>{/header-subtitle}
+
+    {#nav}
+    <nav>
+        <a href="/">Home</a>
+        <a href="/play/{campaign.id}">⚔️ Play</a>
+        <a href="/campaign/{campaign.id}">💬 Campaign Q&A</a>
+        <a href="/reference">📖 Reference</a>
+    </nav>
+    <script>
+        document.querySelectorAll('nav a').forEach(a => {
+            const path = window.location.pathname;
+            const href = a.getAttribute('href');
+            if (href === '/' ? path === '/' : path.startsWith(href)) {
+                a.classList.add('active');
+            }
+        });
+    </script>
+    {/nav}
+
+    {#mainClass}class="chat-area"{/mainClass}
+    {#content}
+      <div id="chat-messages"></div>
+
+      <div id="input-container">
+          <textarea
+              id="message-input"
+              placeholder="Ask about your campaign..."
+              autocomplete="off"
+              rows="1"></textarea>
+          <button id="send-btn">Send</button>
+      </div>
+    {/content}
+
+    {#footer-scripts}
+    <script>
+        new ChatInterface({
+            apiEndpoint: '/api/campaign/{campaign.id}',
+            loadingMessage: 'Thinking...',
+            errorMessage: 'Error: Could not get response from the LLM.',
+            method: 'POST'
+        });
+    </script>
+    {/footer-scripts}
+{/include}

@@ -10,6 +10,24 @@
     <script src="/play-interface.js"></script>
     {/scripts}
 
+    {#nav}
+    <nav>
+        <a href="/">Home</a>
+        <a href="/play">⚔️ Play</a>
+        <a href="/campaign/{campaign.id}">💬 Campaign Q&A</a>
+        <a href="/reference">📖 Reference</a>
+    </nav>
+    <script>
+        document.querySelectorAll('nav a').forEach(a => {
+            const path = window.location.pathname;
+            const href = a.getAttribute('href');
+            if (href === '/' ? path === '/' : path.startsWith(href)) {
+                a.classList.add('active');
+            }
+        });
+    </script>
+    {/nav}
+
     {#mainClass}class="play-area"{/mainClass}
 
     {#content}
@@ -81,8 +99,13 @@
 
         <!-- Sidebar (moves + oracles + vows) -->
         <aside id="sidebar">
+            <div id="vows-section">
+                <h2>Vows</h2>
+                <div id="vows-list"></div>
+            </div>
+
             <div id="moves-section">
-                <h3>Moves</h3>
+                <h2>Moves</h2>
                 {#for entry in moves.entrySet()}
                 <details class="move-category">
                     <summary>{entry.value.name.value}</summary>
@@ -101,7 +124,7 @@
             </div>
 
             <div id="oracles-section">
-                <h3>Oracles</h3>
+                <h2>Oracles</h2>
                 {#for oracle in oracles}
                 <details class="oracle-category">
                     <summary>{oracle.name.value}</summary>
@@ -116,11 +139,6 @@
                     {/if}
                 </details>
                 {/for}
-            </div>
-
-            <div id="vows-section">
-                <h3>Vows</h3>
-                <div id="vows-list"></div>
             </div>
         </aside>
     </div>
