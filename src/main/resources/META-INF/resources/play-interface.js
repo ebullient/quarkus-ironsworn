@@ -35,6 +35,7 @@ class PlayInterface {
         this.initOracleButtons();
         this.initRollPanel();
         this.initDrawer();
+        this.initMeters();
     }
 
     // --- WebSocket ---
@@ -619,8 +620,34 @@ class PlayInterface {
     }
 
     handleCharacterUpdate(msg) {
+        console.log('[character] received update:', msg.character);
         this.character = msg.character;
         this.updateCharacterDisplay();
+    }
+
+    // --- Meters ---
+
+    initMeters() {
+        this.meterDebounce = null;
+        ['health', 'spirit', 'supply', 'momentum'].forEach(key => {
+            const input = document.getElementById('meter-' + key);
+            input.addEventListener('input', () => {
+                const min = parseInt(input.min);
+                const max = parseInt(input.max);
+                let val = parseInt(input.value);
+                if (isNaN(val)) return;
+                val = Math.max(min, Math.min(max, val));
+                input.value = val;
+                if (this.character) {
+                    this.character[key] = val;
+                    clearTimeout(this.meterDebounce);
+                    this.meterDebounce = setTimeout(() => {
+                        console.log('[character] sending meter update:', key, '=', val);
+                        this.send({ type: 'character_update', character: this.character });
+                    }, 500);
+                }
+            });
+        });
     }
 
     // --- Character display ---
@@ -636,10 +663,10 @@ class PlayInterface {
         document.getElementById('stat-shadow').textContent = c.shadow;
         document.getElementById('stat-wits').textContent = c.wits;
 
-        document.querySelector('#meter-health span').textContent = c.health;
-        document.querySelector('#meter-spirit span').textContent = c.spirit;
-        document.querySelector('#meter-supply span').textContent = c.supply;
-        document.querySelector('#meter-momentum span').textContent = c.momentum;
+        document.getElementById('meter-health').value = c.health;
+        document.getElementById('meter-spirit').value = c.spirit;
+        document.getElementById('meter-supply').value = c.supply;
+        document.getElementById('meter-momentum').value = c.momentum;
 
         // Vows
         const vowsList = document.getElementById('vows-list');
@@ -814,6 +841,7 @@ class PlayInterface {
         const burnOutcome = this.computeOutcome(data.momentum, data.challenge1, data.challenge2);
 
         this.character.momentum = 2;
+        console.log('[character] sending momentum burn update');
         this.send({ type: 'character_update', character: this.character });
         this.updateCharacterDisplay();
 

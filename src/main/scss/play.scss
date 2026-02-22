@@ -67,8 +67,23 @@ main.play-area {
     .meter {
       font-size: var(--font-size-sm);
 
-      span {
+      input[type="number"] {
+        width: 3ch;
         font-weight: bold;
+        font-size: inherit;
+        text-align: center;
+        border: 1px solid var(--color-border, #555);
+        border-radius: 3px;
+        background: transparent;
+        color: inherit;
+        padding: 0 2px;
+        -moz-appearance: textfield;
+
+        &::-webkit-inner-spin-button,
+        &::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
       }
     }
   }
