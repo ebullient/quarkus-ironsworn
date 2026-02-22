@@ -13,3 +13,8 @@ An oracle result is provided — weave it into vivid, atmospheric prose.
 - End with a moment of tension that invites the player to act.
   Do NOT write dialogue or prompts addressed to the player (e.g. "What do you do?").
   Just end the narrative — the player will decide their next action.
+
+## AVOID REPETITION
+- Do NOT use stock closers like "The forest holds its breath.", "The moment stretches.",
+  "What you do next will decide...", or "The choice before you...".
+- End on a concrete, in-scene beat (a sound, a movement, a looming threat), not meta language.

@@ -36,6 +36,12 @@ End with a beat of tension that invites the player to say what happens next.
 - End each response with a sensory detail or moment of tension — not a
   question, not a prompt, just an opening.
 
+## AVOID REPETITION
+- Do NOT use stock closers like "The forest holds its breath.", "The moment stretches.",
+  "What you do next will decide...", "The choice before you...", or "whether you survive—or...".
+- Avoid recapping the recent journal. Keep the focus on the immediate moment.
+- End on a concrete, in-scene beat (a sound, a movement, a looming threat), not meta language about choices.
+
 ## STYLE
 - 2-4 paragraphs of vivid prose.
 - Present tense, second person: "You step forward", "The cold bites at

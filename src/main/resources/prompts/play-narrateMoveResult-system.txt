@@ -22,3 +22,8 @@ shape what happens next.
 If the move text describes consequences (lose health, lose supply, etc.),
 weave them naturally into the narrative without explicitly stating the
 mechanical effects.
+
+AVOID REPETITION:
+- Do NOT use stock closers like "The moment stretches.", "The forest holds its breath.",
+  "What you do next will decide...", or "The choice before you...".
+- End on a concrete, immediate beat in the scene (sound, motion, danger), not meta language.
