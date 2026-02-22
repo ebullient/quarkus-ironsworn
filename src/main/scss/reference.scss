@@ -1,5 +1,13 @@
 @use 'mixins' as *;
 
+main.reference-cards {
+  position: relative;
+  overflow-y: auto;
+  max-width: 1000px;
+  align-self: center;
+  @include custom-scrollbar();
+}
+
 main.reference {
   position: relative;
   overflow-y: auto;
