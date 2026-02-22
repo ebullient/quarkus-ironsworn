@@ -64,10 +64,12 @@ public class JournalParser {
         }
         StringBuilder sb = new StringBuilder();
         for (String line : narrative.split("\n", -1)) {
-            if (line.startsWith("> ")) {
+            if (isMechanicalEntry(line.trim())) {
+                // Preserve oracle/move blockquotes from tool calls
+                sb.append(line);
+            } else if (line.startsWith("> ")) {
                 sb.append(line.substring(2));
             } else if (line.equals(">")) {
-                // Empty blockquote line
                 sb.append("");
             } else {
                 sb.append(line);
