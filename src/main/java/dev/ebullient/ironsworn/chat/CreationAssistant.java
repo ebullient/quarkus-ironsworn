@@ -3,7 +3,6 @@ package dev.ebullient.ironsworn.chat;
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
-import dev.langchain4j.service.V;
 import dev.langchain4j.service.guardrail.OutputGuardrails;
 import io.quarkiverse.langchain4j.RegisterAiService;
 
@@ -64,16 +63,16 @@ public interface CreationAssistant {
             """)
     CreationResponse guide(
             @MemoryId String sessionId,
-            @V("name") String name,
-            @V("edge") int edge,
-            @V("heart") int heart,
-            @V("iron") int iron,
-            @V("shadow") int shadow,
-            @V("wits") int wits,
-            @V("journalContext") String journalContext,
-            @V("exchangeCount") int exchangeCount,
-            @V("playerInput") String playerInput,
-            @V("vowInstruction") String vowInstruction);
+            String name,
+            int edge,
+            int heart,
+            int iron,
+            int shadow,
+            int wits,
+            String journalContext,
+            int exchangeCount,
+            String playerInput,
+            String vowInstruction);
 
     @SystemMessage("""
             You are a narrator for the Ironlands — a harsh, mythic frontier of dark forests,

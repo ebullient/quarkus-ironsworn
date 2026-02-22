@@ -3,7 +3,6 @@ package dev.ebullient.ironsworn.chat;
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
-import dev.langchain4j.service.V;
 import dev.langchain4j.service.guardrail.OutputGuardrails;
 import io.quarkiverse.langchain4j.RegisterAiService;
 
@@ -45,8 +44,8 @@ public interface CampaignAssistant {
             """)
     CampaignResponse answer(
             @MemoryId String campaignId,
-            @V("characterContext") String characterContext,
-            @V("journalContext") String journalContext,
-            @V("memoryContext") String memoryContext,
-            @V("question") String question);
+            String characterContext,
+            String journalContext,
+            String memoryContext,
+            String question);
 }
