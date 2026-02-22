@@ -3,7 +3,6 @@ package dev.ebullient.ironsworn.chat;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import dev.ebullient.ironsworn.GameJournal;
 import dev.ebullient.ironsworn.IronswornMechanics;
 import dev.ebullient.ironsworn.model.OracleResult;
 import dev.langchain4j.agent.tool.Tool;
@@ -23,9 +22,6 @@ public class OracleTool {
     @Inject
     IronswornMechanics mechanics;
 
-    @Inject
-    GameJournal journal;
-
     @Tool("""
             Roll on an Ironsworn oracle table to answer an open question in the story.
             Use this ONLY when the player has not defined what happens and the situation
@@ -39,15 +35,13 @@ public class OracleTool {
             - settlement: name, trouble
             - turning_point: major_plot_twist, combat_action, mystic_backlash
 
-            Returns a formatted journal entry you should include verbatim in your narrative.
+            Returns a formatted journal entry you MUST include verbatim in your narrative.
+            This tool does not write to the journal directly.
             """)
     public String rollOracle(String collectionKey, String tableKey, @ToolMemoryId String campaignId) {
         Log.debugf("%s: Ask the oracle - %s/%s", campaignId, collectionKey, tableKey);
 
         OracleResult result = mechanics.rollOracle(collectionKey, tableKey);
-        journal.appendMechanical(campaignId, result.toJournalEntry());
-        return "> **Oracle** (%s / %s): rolled %d → **%s**".formatted(
-                result.collectionName(), result.tableName(),
-                result.roll(), result.resultText());
+        return "> " + result.toJournalEntry();
     }
 }

@@ -11,3 +11,5 @@ An oracle result is provided — weave it into vivid, atmospheric prose.
 - Do NOT include blockquote lines (no lines starting with ">").
   The UI shows oracle rolls separately.
 - End with a moment of tension that invites the player to act.
+  Do NOT write dialogue or prompts addressed to the player (e.g. "What do you do?").
+  Just end the narrative — the player will decide their next action.

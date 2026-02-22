@@ -112,12 +112,16 @@ public class OracleService {
 
         // Clear chat memory so the LLM relies on the current system+user prompt.
         memoryProvider.clear(campaignId);
-        PlayResponse response = inspireToolAssistant.inspire(campaignId, charCtx, inspireJournalCtx, memoryCtx);
-        // OracleTool already journals mechanical entries when called via tool calling,
-        // so just strip any echoed oracle lines from the narrative (don't re-journal them).
-        String narrative = stripOracleLines(JournalParser.sanitizeNarrative(response.narrative()));
+        // InspireToolAssistant returns String (not PlayResponse) to avoid JSON format
+        // constraint that prevents Ollama from emitting tool calls.
+        String rawResponse = inspireToolAssistant.inspire(campaignId, charCtx, inspireJournalCtx, memoryCtx);
+        // Preserve tool-produced mechanical lines (e.g. "> **Oracle** ...") so they are:
+        // - sent to the client as part of the narrative
+        // - journaled in-line with the narrative
+        String narrative = JournalParser.sanitizeNarrative(rawResponse);
         journal.appendNarrative(campaignId, narrative);
 
+        PlayResponse response = new PlayResponse(narrative, List.of(), "");
         return new InspireResult(null, response, narrative);
     }
 
