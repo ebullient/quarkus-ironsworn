@@ -122,6 +122,35 @@ public class JournalParser {
     }
 
     /**
+     * Check whether the last non-blank line is an oracle result (not a move roll).
+     */
+    public static boolean endsWithOracleEntry(String journalContent) {
+        String[] lines = journalContent.split("\n");
+        for (int i = lines.length - 1; i >= 0; i--) {
+            String trimmed = lines[i].trim();
+            if (!trimmed.isEmpty()) {
+                return isOracleEntry(trimmed);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Test whether a trimmed line is an oracle entry: {@code > **Oracle** (...)}.
+     */
+    public static boolean isOracleEntry(String trimmedLine) {
+        if (trimmedLine == null) {
+            return false;
+        }
+        String trimmed = trimmedLine.trim();
+        if (!trimmed.startsWith(">")) {
+            return false;
+        }
+        String afterBlockquote = trimmed.substring(1).stripLeading();
+        return afterBlockquote.startsWith("**Oracle**");
+    }
+
+    /**
      * Check whether the last non-blank line is a player entry.
      */
     public static boolean endsWithPlayerEntry(String journalContent) {

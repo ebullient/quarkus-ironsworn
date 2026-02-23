@@ -1,6 +1,5 @@
 package dev.ebullient.ironsworn.web;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -29,7 +28,7 @@ public class Play extends Controller {
         public static native TemplateInstance play(
                 Campaign campaign,
                 Map<String, MoveCategory> moves,
-                Collection<OracleTablesCollection> oracles);
+                Map<String, OracleTablesCollection> oracles);
     }
 
     @Inject
@@ -52,6 +51,6 @@ public class Play extends Controller {
             flash("error", "Campaign not found: " + campaignId);
             return Templates.index(journal.listCampaigns());
         }
-        return Templates.play(campaign, data.getMoves(), data.getOracles().values());
+        return Templates.play(campaign, data.getMoves(), data.getOracles());
     }
 }

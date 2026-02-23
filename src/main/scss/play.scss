@@ -364,6 +364,18 @@ main.play-area {
       border-color: var(--cyan-3);
     }
   }
+
+  .move-btn.progress-move {
+    border-left: 3px solid var(--cyan-3);
+    padding-left: calc(var(--spacing-sm) - 2px);
+  }
+
+  .move-btn.no-roll-move {
+    opacity: 0.5;
+    font-style: italic;
+    cursor: default;
+    pointer-events: none;
+  }
 }
 
 // Vows

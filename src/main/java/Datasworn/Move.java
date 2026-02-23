@@ -2,10 +2,11 @@
 
 package Datasworn;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "roll_type")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "roll_type", visible = true)
 @JsonSubTypes({
         @JsonSubTypes.Type(name = "action_roll", value = MoveActionRoll.class),
         @JsonSubTypes.Type(name = "no_roll", value = MoveNoRoll.class),
@@ -14,7 +15,14 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 })
 public abstract class Move {
 
+    @JsonProperty("roll_type")
+    private String rollType;
+
     public abstract Label getName();
 
     public abstract MarkdownString getText();
+
+    public String getRollType() {
+        return rollType;
+    }
 }

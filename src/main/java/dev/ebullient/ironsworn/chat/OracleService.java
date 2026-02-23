@@ -53,13 +53,48 @@ public class OracleService {
 
     /**
      * Orchestrate the full "Inspire Me" flow: oracle selection/rolling + narration.
-     * Delegates to either the tool-calling or non-tool-calling path based on config.
+     * If the journal already ends with an oracle result, skip rolling and just narrate.
+     * Otherwise delegates to either the tool-calling or non-tool-calling path based on config.
      */
     public InspireResult inspireMe(String campaignId, String charCtx, String journalCtx, String memoryCtx) {
+        if (JournalParser.endsWithOracleEntry(journalCtx)) {
+            return narrateExistingOracle(campaignId, charCtx, journalCtx, memoryCtx);
+        }
         if (useToolCalling) {
             return inspireMeWithTools(campaignId, charCtx, journalCtx, memoryCtx);
         }
         return inspireMeWithSelector(campaignId, charCtx, journalCtx, memoryCtx);
+    }
+
+    /**
+     * The journal already ends with an oracle result — just narrate it without rolling again.
+     */
+    private InspireResult narrateExistingOracle(String campaignId, String charCtx,
+            String journalCtx, String memoryCtx) {
+        Log.debugf("%s: Journal already ends with oracle, narrating directly", campaignId);
+
+        // Extract the oracle line for the inspire prompt
+        String oracleLine = extractLastOracleLine(journalCtx);
+        String inspireJournalCtx = buildInspireJournalContext(journalCtx);
+
+        memoryProvider.clear(campaignId);
+        PlayResponse response = assistant.inspire(campaignId, oracleLine, charCtx, inspireJournalCtx, memoryCtx);
+        String narrative = stripOracleLines(JournalParser.sanitizeNarrative(response.narrative()));
+        journal.appendNarrative(campaignId, narrative);
+
+        return new InspireResult(null, response, narrative);
+    }
+
+    private static String extractLastOracleLine(String journalCtx) {
+        String[] lines = journalCtx.split("\n");
+        for (int i = lines.length - 1; i >= 0; i--) {
+            String trimmed = lines[i].trim();
+            if (!trimmed.isEmpty()) {
+                // Strip the leading "> " blockquote marker
+                return trimmed.startsWith(">") ? trimmed.substring(1).stripLeading() : trimmed;
+            }
+        }
+        return "";
     }
 
     /**

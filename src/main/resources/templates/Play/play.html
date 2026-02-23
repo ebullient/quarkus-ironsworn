@@ -112,10 +112,12 @@
                     <summary>{entry.value.name.value}</summary>
                     {#if entry.value.contents != null}
                     {#for move in entry.value.contents.entrySet()}
-                    <button class="move-btn"
+                    <button class="move-btn{#if move.value.rollType eq 'progress_roll'} progress-move{#else if move.value.rollType eq 'no_roll'} no-roll-move{/if}"
                             data-category="{entry.key}"
                             data-move="{move.key}"
-                            data-move-name="{move.value.name.value}">
+                            data-move-name="{move.value.name.value}"
+                            data-roll-type="{move.value.rollType}"
+                            {#if move.value.rollType eq 'no_roll'}disabled{/if}>
                         {move.value.name.value}
                     </button>
                     {/for}
@@ -126,13 +128,13 @@
 
             <div id="oracles-section">
                 <h2>Oracles</h2>
-                {#for oracle in oracles}
+                {#for entry in oracles.entrySet()}
                 <details class="oracle-category">
-                    <summary>{oracle.name.value}</summary>
-                    {#if oracle.contents != null}
-                    {#for table in oracle.contents.entrySet()}
+                    <summary>{entry.value.name.value}</summary>
+                    {#if entry.value.contents != null}
+                    {#for table in entry.value.contents.entrySet()}
                     <button class="oracle-btn"
-                            data-collection="{oracle.name.value}"
+                            data-collection="{entry.key}"
                             data-table="{table.key}">
                         {table.value.name.value}
                     </button>
