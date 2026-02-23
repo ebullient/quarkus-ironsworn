@@ -1,0 +1,21 @@
+services:
+  neo4j:
+    image: neo4j:5.15
+    ports:
+      - "7474:7474"  # HTTP UI
+      - "7687:7687"  # Bolt protocol
+    environment:
+      NEO4J_AUTH: neo4j/devpassword
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "devpassword", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  neo4j-data:
+  neo4j-logs:

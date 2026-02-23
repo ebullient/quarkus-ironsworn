@@ -21,12 +21,10 @@ import java.util.concurrent.TimeUnit;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -38,11 +36,10 @@ import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.filter.Filter;
+import io.quarkus.logging.Log;
 
 @Singleton
 public class StoryMemoryIndexer {
-    private static final Logger log = Logger.getLogger(StoryMemoryIndexer.class);
-
     record IndexState(long journalLastModifiedMillis, List<String> exchangeHashes) {
     }
 
@@ -59,10 +56,10 @@ public class StoryMemoryIndexer {
     ObjectMapper objectMapper;
 
     @Inject
-    Instance<EmbeddingModel> embeddingModel;
+    EmbeddingModel embeddingModel;
 
     @Inject
-    Instance<Neo4jEmbeddingStore> embeddingStore;
+    Neo4jEmbeddingStore embeddingStore;
 
     private final ConcurrentHashMap<String, ScheduledFuture<?>> pending = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Object> campaignLocks = new ConcurrentHashMap<>();
@@ -73,6 +70,7 @@ public class StoryMemoryIndexer {
     void init() {
         this.scheduler = Executors.newSingleThreadScheduledExecutor(
                 Thread.ofVirtual().name("story-memory-indexer-", 0).factory());
+        Log.debugf("StoryMemoryIndexer isAvailable=%s", isAvailable());
     }
 
     @PreDestroy
@@ -83,11 +81,7 @@ public class StoryMemoryIndexer {
     }
 
     public boolean isAvailable() {
-        return enabled
-                && embeddingModel != null
-                && embeddingModel.isResolvable()
-                && embeddingStore != null
-                && embeddingStore.isResolvable();
+        return enabled;
     }
 
     public void warmIndex(String campaignId) {
@@ -110,7 +104,7 @@ public class StoryMemoryIndexer {
             try {
                 indexNow(campaignId);
             } catch (Exception e) {
-                log.warnf(e, "Story memory indexing failed for %s", campaignId);
+                Log.warnf(e, "Story memory indexing failed for %s", campaignId);
             } finally {
                 pending.remove(campaignId);
             }
@@ -167,7 +161,7 @@ public class StoryMemoryIndexer {
                     toRemove.add(embeddingId(campaignId, i));
                 }
                 if (!toRemove.isEmpty()) {
-                    embeddingStore.get().removeAll(toRemove);
+                    embeddingStore.removeAll(toRemove);
                 }
             }
 
@@ -184,18 +178,18 @@ public class StoryMemoryIndexer {
                 segments.add(TextSegment.from(exchange.content(), metadata(campaignId, i)));
             }
 
-            List<Embedding> embeddings = embeddingModel.get().embedAll(segments).content();
+            List<Embedding> embeddings = embeddingModel.embedAll(segments).content();
             int n = Math.min(embeddings.size(), segments.size());
             if (n <= 0) {
-                log.warnf("No embeddings produced for %s", campaignId);
+                Log.warnf("No embeddings produced for %s", campaignId);
                 return;
             }
             if (embeddings.size() != segments.size()) {
-                log.warnf("Embedding count mismatch for %s: %d embeddings for %d segments (indexing %d)",
+                Log.warnf("Embedding count mismatch for %s: %d embeddings for %d segments (indexing %d)",
                         campaignId, embeddings.size(), segments.size(), n);
             }
 
-            embeddingStore.get().addAll(ids.subList(0, n), embeddings.subList(0, n), segments.subList(0, n));
+            embeddingStore.addAll(ids.subList(0, n), embeddings.subList(0, n), segments.subList(0, n));
             writeState(statePath, new IndexState(lastModified, newHashes));
         }
     }
@@ -203,14 +197,14 @@ public class StoryMemoryIndexer {
     private void clearCampaignIndex(String campaignId, Path statePath) {
         try {
             Filter filter = metadataKey("campaignId").isEqualTo(campaignId);
-            embeddingStore.get().removeAll(filter);
+            embeddingStore.removeAll(filter);
         } catch (Exception e) {
-            log.debugf(e, "Failed to clear Neo4j embeddings for %s", campaignId);
+            Log.debugf(e, "Failed to clear Neo4j embeddings for %s", campaignId);
         }
         try {
             Files.deleteIfExists(statePath);
         } catch (IOException e) {
-            log.debugf(e, "Failed to delete index state %s", statePath);
+            Log.debugf(e, "Failed to delete index state %s", statePath);
         }
     }
 
@@ -247,7 +241,7 @@ public class StoryMemoryIndexer {
         try {
             return objectMapper.readValue(Files.readString(statePath, StandardCharsets.UTF_8), IndexState.class);
         } catch (Exception e) {
-            log.debugf(e, "Failed to read index state %s", statePath);
+            Log.debugf(e, "Failed to read index state %s", statePath);
             return null;
         }
     }
@@ -258,7 +252,7 @@ public class StoryMemoryIndexer {
             Files.writeString(statePath, json, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
         } catch (Exception e) {
-            log.debugf(e, "Failed to write index state %s", statePath);
+            Log.debugf(e, "Failed to write index state %s", statePath);
         }
     }
 
@@ -285,7 +279,7 @@ public class StoryMemoryIndexer {
             }
             return String.join("\n", lines.subList(journalStart, lines.size())).trim();
         } catch (IOException e) {
-            log.debugf(e, "Failed to read journal section from %s", journalPath);
+            Log.debugf(e, "Failed to read journal section from %s", journalPath);
             return "";
         }
     }
