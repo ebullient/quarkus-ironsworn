@@ -473,6 +473,21 @@ public class PlayWebSocket {
         // Look up the rules text for this outcome
         String moveOutcomeText = mechanics.getMoveOutcomeText(categoryKey, moveKey, outcome);
 
+        // If the outcome text mentions "Pay the Price", roll that oracle automatically
+        if (moveOutcomeText.contains("Pay the Price")) {
+            OracleResult ptpOracle = oracleService.rollOracle("moves", "pay_the_price");
+            journal.appendMechanical(campaignId, ptpOracle.toJournalEntry());
+
+            // Send the Pay the Price result to the client
+            String ptpJson = objectMapper.writeValueAsString(Map.of(
+                    "type", "oracle_result",
+                    "result", ptpOracle));
+            connection.sendTextAndAwait(ptpJson);
+
+            // Append to moveOutcomeText so the LLM narrates with the specific price
+            moveOutcomeText += "\n\n**Pay the Price result**: " + ptpOracle.resultText();
+        }
+
         // Send the rules text immediately
         String moveOutcomeJson = objectMapper.writeValueAsString(Map.of(
                 "type", "move_outcome",
