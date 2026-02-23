@@ -40,7 +40,7 @@ public class CampaignResource {
     public String ask(@RestPath String campaignId, String question) {
         CharacterSheet character = journal.readCharacter(campaignId);
         String charCtx = formatCharacterContext(character);
-        String journalCtx = journal.getRecentJournal(campaignId, 100);
+        String journalCtx = journal.getRecentJournal(campaignId, 20);
         String memoryCtx = storyMemory.relevantMemory(campaignId, question);
 
         CampaignResponse response = assistant.answer(campaignId, charCtx, journalCtx, memoryCtx, question);

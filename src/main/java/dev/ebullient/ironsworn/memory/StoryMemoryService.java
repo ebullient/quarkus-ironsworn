@@ -51,9 +51,6 @@ public class StoryMemoryService {
         if (!enabled || query == null || query.isBlank()) {
             return "";
         }
-        if (indexer == null || !indexer.isAvailable()) {
-            return "";
-        }
 
         // Keep embeddings fresh in the background; do not block gameplay on a re-index.
         indexer.requestIndex(campaignId);
