@@ -272,6 +272,49 @@ public class GameJournal {
         }
     }
 
+    /**
+     * Truncate the journal at the given block index, removing that block and everything after it.
+     */
+    public void truncateJournal(String campaignId, int blockIndex) {
+        Object lock = CAMPAIGN_LOCKS.computeIfAbsent(campaignId, k -> new Object());
+        synchronized (lock) {
+            Path path = journalPath(campaignId);
+            try {
+                List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
+                int journalStart = -1;
+                for (int i = 0; i < lines.size(); i++) {
+                    if (lines.get(i).trim().equals("## Journal")) {
+                        journalStart = i + 1;
+                        break;
+                    }
+                }
+                if (journalStart < 0) {
+                    return;
+                }
+
+                String journalContent = String.join("\n", lines.subList(journalStart, lines.size()));
+                int lineOffset = JournalParser.findBlockStartLine(journalContent, blockIndex);
+                if (lineOffset < 0) {
+                    return;
+                }
+
+                // Keep everything before the journal section + journal header + lines up to the cut point
+                int cutLine = journalStart + lineOffset;
+                // Trim trailing blank lines before the cut point
+                while (cutLine > journalStart && lines.get(cutLine - 1).trim().isEmpty()) {
+                    cutLine--;
+                }
+                List<String> kept = new ArrayList<>(lines.subList(0, cutLine));
+                kept.add(""); // ensure trailing newline
+
+                Files.writeString(path, String.join("\n", kept) + "\n", StandardCharsets.UTF_8);
+                log.infof("Truncated journal for campaign %s at block %d (line %d)", campaignId, blockIndex, cutLine);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to truncate journal for campaign: " + campaignId, e);
+            }
+        }
+    }
+
     public Campaign getCampaign(String campaignId) {
         Path path = journalPath(campaignId);
         if (!Files.exists(path)) {

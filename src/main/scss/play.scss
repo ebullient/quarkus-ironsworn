@@ -690,6 +690,84 @@ main.play-area {
   }
 }
 
+// Backtrack mode
+#backtrack-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: var(--font-size-xs);
+  background: var(--color-bg-base);
+  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+
+  &:hover {
+    color: var(--color-text-primary);
+    border-color: var(--purple-3);
+    background: rgba(var(--purple-4-rgb), 0.15);
+  }
+
+  &.active {
+    background: rgba(var(--purple-4-rgb), 0.15);
+    border-color: var(--purple-3);
+    color: var(--purple-3);
+  }
+
+  &.hidden { display: none; }
+}
+
+#chat-messages.backtrack-mode .message {
+  transition: opacity $transition-fast;
+
+  // Only server-indexed messages are clickable targets
+  &[data-block-index] {
+    cursor: pointer;
+  }
+
+  &[data-block-index]:hover,
+  &[data-block-index]:hover ~ .message {
+    opacity: 0.5;
+  }
+
+  &.backtrack-selected {
+    opacity: 0.3;
+    border-left: 4px solid var(--purple-3);
+    background: rgba(var(--purple-4-rgb), 0.1);
+  }
+}
+
+#backtrack-confirm {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--color-bg-overlay);
+  border: 2px solid var(--purple-3);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-sm);
+
+  &.hidden { display: none; }
+
+  #backtrack-confirm-btn {
+    background: var(--purple-5);
+    color: var(--purple-0);
+
+    &:hover:not(:disabled) {
+      background: var(--purple-4);
+    }
+  }
+
+  #backtrack-cancel-btn {
+    background: var(--color-bg-base);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-primary);
+  }
+}
+
 // Loading indicator
 .loading {
   color: var(--color-text-secondary);

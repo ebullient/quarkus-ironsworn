@@ -13,6 +13,8 @@ class PlayInterface {
         this.pendingMove = null;
         this.selectedStat = null;
         this.creationMode = false;
+        this.backtrackMode = false;
+        this.backtrackFromIndex = null;
 
         // DOM elements — gameplay
         this.chatContainer = document.getElementById('chat-messages');
@@ -30,6 +32,8 @@ class PlayInterface {
         this.sidebar = document.getElementById('sidebar');
 
         this.inspireBtn = document.getElementById('inspire-btn');
+        this.backtrackBtn = document.getElementById('backtrack-btn');
+        this.backtrackConfirmPanel = document.getElementById('backtrack-confirm');
 
         this.initWebSocket();
         this.initInput();
@@ -39,6 +43,7 @@ class PlayInterface {
         this.initDrawer();
         this.initMeters();
         this.initInspire();
+        this.initBacktrack();
     }
 
     // --- WebSocket ---
@@ -98,6 +103,9 @@ class PlayInterface {
                 break;
             case 'ready':
                 this.enableInput();
+                break;
+            case 'backtrack_done':
+                this.handleBacktrackDone();
                 break;
             case 'error':
                 this.removeLoadingIndicator();
@@ -298,7 +306,7 @@ class PlayInterface {
             if (type === 'assistant' && last && last.type === 'assistant') {
                 last.html += '\n' + html;
             } else {
-                grouped.push({ type, html });
+                grouped.push({ type, html, blockIndex: block.index });
             }
         }
 
@@ -306,6 +314,7 @@ class PlayInterface {
             const div = document.createElement('div');
             div.className = 'message ' + (extraClass ? (extraClass + ' ') : '') + (block.type || 'assistant');
             div.innerHTML = block.html;
+            if (block.blockIndex != null) div.dataset.blockIndex = block.blockIndex;
             this.chatContainer.appendChild(div);
         }
         this.scrollToBottom();
@@ -872,6 +881,105 @@ class PlayInterface {
         this.disableInput();
         this.addLoadingIndicator();
         this.send({ type: 'inspire' });
+    }
+
+    // --- Backtrack mode ---
+
+    initBacktrack() {
+        this.backtrackBtn.addEventListener('click', () => this.toggleBacktrackMode());
+        document.getElementById('backtrack-confirm-btn').addEventListener('click', () => this.confirmBacktrack());
+        document.getElementById('backtrack-cancel-btn').addEventListener('click', () => this.exitBacktrackMode());
+
+        this.chatContainer.addEventListener('click', (e) => {
+            if (!this.backtrackMode) return;
+            const msg = e.target.closest('.message[data-block-index]');
+            if (!msg) return;
+            this.selectBacktrackFromMessage(msg);
+        });
+    }
+
+    toggleBacktrackMode() {
+        if (this.backtrackMode) {
+            this.exitBacktrackMode();
+        } else {
+            this.enterBacktrackMode();
+        }
+    }
+
+    enterBacktrackMode() {
+        this.backtrackMode = true;
+        this.backtrackFromIndex = null;
+        this.chatContainer.classList.add('backtrack-mode');
+        this.backtrackBtn.classList.add('active');
+        this.messageInput.disabled = true;
+        this.sendBtn.classList.add('hidden');
+        if (this.inspireBtn) this.inspireBtn.classList.add('hidden');
+        this.backtrackConfirmPanel.classList.remove('hidden');
+        document.getElementById('backtrack-confirm-btn').disabled = true;
+        document.getElementById('backtrack-count').textContent = 'Select a message to backtrack to';
+    }
+
+    exitBacktrackMode() {
+        this.backtrackMode = false;
+        this.backtrackFromIndex = null;
+        this.chatContainer.classList.remove('backtrack-mode');
+        this.backtrackBtn.classList.remove('active');
+        this.backtrackConfirmPanel.classList.add('hidden');
+        // Clear selections
+        this.chatContainer.querySelectorAll('.backtrack-selected').forEach(el => {
+            el.classList.remove('backtrack-selected');
+        });
+        this.enableInput();
+        this.sendBtn.classList.remove('hidden');
+        if (this.inspireBtn) this.inspireBtn.classList.remove('hidden');
+    }
+
+    selectBacktrackFromMessage(clickedMsg) {
+        // Clear previous selection
+        this.chatContainer.querySelectorAll('.backtrack-selected').forEach(el => {
+            el.classList.remove('backtrack-selected');
+        });
+
+        this.backtrackFromIndex = parseInt(clickedMsg.dataset.blockIndex);
+
+        // Select the clicked message and everything after it in DOM order
+        let count = 0;
+        let selecting = false;
+        for (const el of this.chatContainer.querySelectorAll('.message')) {
+            if (el === clickedMsg) selecting = true;
+            if (selecting) {
+                el.classList.add('backtrack-selected');
+                count++;
+            }
+        }
+
+        const confirmBtn = document.getElementById('backtrack-confirm-btn');
+        const countLabel = document.getElementById('backtrack-count');
+        confirmBtn.disabled = false;
+        countLabel.textContent = 'Delete ' + count + ' message' + (count !== 1 ? 's' : '') + '?';
+    }
+
+    confirmBacktrack() {
+        if (this.backtrackFromIndex === null) return;
+        this.send({ type: 'backtrack', blockIndex: this.backtrackFromIndex });
+        document.getElementById('backtrack-confirm-btn').disabled = true;
+        document.getElementById('backtrack-count').textContent = 'Deleting...';
+    }
+
+    handleBacktrackDone() {
+        // Remove selected messages and any unindexed messages after them
+        const selected = this.chatContainer.querySelectorAll('.backtrack-selected');
+        if (selected.length > 0) {
+            // Also remove any messages after the last selected (unindexed client-side messages)
+            let sibling = selected[selected.length - 1].nextElementSibling;
+            while (sibling) {
+                const next = sibling.nextElementSibling;
+                if (sibling.classList.contains('message')) sibling.remove();
+                sibling = next;
+            }
+        }
+        selected.forEach(el => el.remove());
+        this.exitBacktrackMode();
     }
 
     // --- Bottom drawer (narrow screens) ---

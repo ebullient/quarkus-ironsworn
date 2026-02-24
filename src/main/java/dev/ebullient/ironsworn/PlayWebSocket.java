@@ -245,6 +245,7 @@ public class PlayWebSocket {
                 case "oracle_manual" -> handleOracleManual(msg);
                 case "progress_mark" -> handleProgressMark(msg);
                 case "character_update" -> handleCharacterUpdate(msg);
+                case "backtrack" -> handleBacktrack(msg);
                 default -> errorJson("Unknown message type: " + type);
             };
         } catch (Exception e) {
@@ -584,6 +585,16 @@ public class PlayWebSocket {
         return objectMapper.writeValueAsString(Map.of(
                 "type", "character_update",
                 "character", character));
+    }
+
+    private String handleBacktrack(JsonNode msg) throws Exception {
+        int blockIndex = msg.path("blockIndex").asInt(-1);
+        if (blockIndex < 0) {
+            return errorJson("Invalid block index");
+        }
+        journal.truncateJournal(campaignId, blockIndex);
+        memoryProvider.clear(campaignId);
+        return objectMapper.writeValueAsString(Map.of("type", "backtrack_done"));
     }
 
     private String extractLastPlayerInput(String journalContent) {

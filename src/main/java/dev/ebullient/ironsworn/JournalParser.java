@@ -15,7 +15,7 @@ public class JournalParser {
     }
 
     /** A typed block of journal content with pre-rendered HTML. */
-    public record JournalBlock(String type, String html) {
+    public record JournalBlock(String type, String html, int index) {
     }
 
     private static final String PLAYER_OPEN = "<player>";
@@ -292,6 +292,7 @@ public class JournalParser {
         List<String> currentLines = new ArrayList<>();
         String currentType = null; // "user", "assistant", "mechanical"
         boolean inPlayerBlock = false;
+        int blockIndex = 0;
 
         for (String line : journalContent.split("\n")) {
             String trimmed = line.trim();
@@ -301,7 +302,7 @@ public class JournalParser {
                 if (isPlayerEntryEnd(trimmed)) {
                     inPlayerBlock = false;
                     // Flush the player block
-                    blocks.add(flushBlock("user", currentLines, augmenter));
+                    blocks.add(flushBlock("user", currentLines, blockIndex++, augmenter));
                     currentLines.clear();
                     currentType = null;
                 } else {
@@ -312,7 +313,7 @@ public class JournalParser {
 
             if (trimmed.isEmpty()) {
                 if (!currentLines.isEmpty()) {
-                    blocks.add(flushBlock(currentType, currentLines, augmenter));
+                    blocks.add(flushBlock(currentType, currentLines, blockIndex++, augmenter));
                     currentLines.clear();
                     currentType = null;
                 }
@@ -321,14 +322,14 @@ public class JournalParser {
 
             if (isPlayerEntry(trimmed)) {
                 if (!currentLines.isEmpty()) {
-                    blocks.add(flushBlock(currentType, currentLines, augmenter));
+                    blocks.add(flushBlock(currentType, currentLines, blockIndex++, augmenter));
                     currentLines.clear();
                 }
                 currentType = "user";
                 inPlayerBlock = true;
             } else if (isMechanicalEntry(trimmed)) {
                 if (!currentLines.isEmpty() && !"mechanical".equals(currentType)) {
-                    blocks.add(flushBlock(currentType, currentLines, augmenter));
+                    blocks.add(flushBlock(currentType, currentLines, blockIndex++, augmenter));
                     currentLines.clear();
                 }
                 currentType = "mechanical";
@@ -337,7 +338,7 @@ public class JournalParser {
                 currentLines.add(display);
             } else {
                 if (!currentLines.isEmpty() && !"assistant".equals(currentType)) {
-                    blocks.add(flushBlock(currentType, currentLines, augmenter));
+                    blocks.add(flushBlock(currentType, currentLines, blockIndex++, augmenter));
                     currentLines.clear();
                 }
                 currentType = "assistant";
@@ -346,18 +347,86 @@ public class JournalParser {
         }
 
         if (!currentLines.isEmpty()) {
-            blocks.add(flushBlock(currentType, currentLines, augmenter));
+            blocks.add(flushBlock(currentType, currentLines, blockIndex, augmenter));
         }
 
         return blocks;
     }
 
-    private static JournalBlock flushBlock(String type, List<String> lines, MarkdownAugmenter augmenter) {
+    /**
+     * Find the line offset (within the journal section) where the given block index starts.
+     * Walks the same state machine as {@link #parseToBlocks} but tracks line numbers.
+     *
+     * @return the 0-based line offset, or -1 if blockIndex is out of range
+     */
+    public static int findBlockStartLine(String journalContent, int blockIndex) {
+        if (journalContent == null || journalContent.isBlank() || blockIndex < 0) {
+            return -1;
+        }
+
+        String[] lines = journalContent.split("\n");
+        int currentBlock = 0;
+        String currentType = null;
+        boolean inPlayerBlock = false;
+
+        for (int i = 0; i < lines.length; i++) {
+            String trimmed = lines[i].trim();
+
+            if (inPlayerBlock) {
+                if (isPlayerEntryEnd(trimmed)) {
+                    inPlayerBlock = false;
+                    // Block was flushed — increment
+                    currentBlock++;
+                    currentType = null;
+                }
+                continue;
+            }
+
+            if (trimmed.isEmpty()) {
+                if (currentType != null) {
+                    // Flush current block
+                    currentBlock++;
+                    currentType = null;
+                }
+                continue;
+            }
+
+            if (isPlayerEntry(trimmed)) {
+                if (currentType != null) {
+                    currentBlock++;
+                }
+                if (currentBlock == blockIndex) {
+                    return i;
+                }
+                currentType = "user";
+                inPlayerBlock = true;
+            } else if (isMechanicalEntry(trimmed)) {
+                if (currentType != null && !"mechanical".equals(currentType)) {
+                    currentBlock++;
+                }
+                if (currentBlock == blockIndex && !"mechanical".equals(currentType)) {
+                    return i;
+                }
+                currentType = "mechanical";
+            } else {
+                if (currentType != null && !"assistant".equals(currentType)) {
+                    currentBlock++;
+                }
+                if (currentBlock == blockIndex && !"assistant".equals(currentType)) {
+                    return i;
+                }
+                currentType = "assistant";
+            }
+        }
+        return -1;
+    }
+
+    private static JournalBlock flushBlock(String type, List<String> lines, int index, MarkdownAugmenter augmenter) {
         String text = String.join("\n", lines).trim();
         if (type == null) {
             type = "assistant";
         }
         String html = augmenter.markdownToHtml(text);
-        return new JournalBlock(type, html);
+        return new JournalBlock(type, html, index);
     }
 }
