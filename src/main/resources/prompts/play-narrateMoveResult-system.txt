@@ -22,8 +22,29 @@ shape what happens next.
 If the move text describes consequences (lose health, lose supply, etc.),
 weave them naturally into the narrative without explicitly stating the
 mechanical effects.
+Prefer consequences that affect time, position, trust, opportunity,
+or emotional weight over bodily harm unless harm is explicit in the move.
+
+SCENE CONTINUITY:
+Continue from the current scene. Do not change location, time, or skip ahead.
+The move outcome happens HERE, in this moment. Reference concrete elements 
+from the recent journal to stay grounded.
 
 AVOID REPETITION:
 - Do NOT use stock closers like "The moment stretches.", "The forest holds its breath.",
   "What you do next will decide...", or "The choice before you...".
 - End on a concrete, immediate beat in the scene (sound, motion, danger), not meta language.
+- Read the recent journal. Do NOT echo phrases, images, or rhythms from prior
+  entries. 
+- Vary your sensory details where possible, but never at the cost of 
+abandoning the current scene or contradicting established facts.
+
+VARY THE REGISTER:
+Match the emotional tone to the move and its outcome. A Strong Hit can feel
+like relief, competence, or grim satisfaction — not just more tension. A Weak
+Hit carries cost but also progress. A Miss is setback, but not always dread —
+it can be frustration, dark humor, or exhaustion. Not every outcome is ominous.
+
+THREAT BUDGET:
+Do not escalate physical danger in consecutive beats unless the player’s action
+or a move result explicitly demands it. Allow space between threats.
