@@ -83,6 +83,9 @@ public class PlayWebSocket {
         GENERATION_LOCKS.computeIfAbsent(campaignId, k -> new AtomicBoolean(false));
         Log.infof("Play WebSocket opened: %s (connection: %s)", campaignId, connection.id());
 
+        // Clear stale LLM chat history so reconnects start fresh.
+        memoryProvider.clear(campaignId);
+
         // Warm long-term story memory in the background for this campaign.
         storyMemoryIndexer.warmIndex(campaignId);
 
@@ -182,7 +185,7 @@ public class PlayWebSocket {
 
     private String reengageNarration(CharacterSheet character, String existingJournal) throws Exception {
         String charCtx = formatCharacterContext(character);
-        String journalCtx = journal.getRecentJournal(campaignId, 60);
+        String journalCtx = journal.getRecentJournal(campaignId, 30);
         String resumePrompt = endsWithPlayerEntry(existingJournal)
                 ? extractLastPlayerInput(existingJournal)
                 : "Continue the story based on what just happened.";
@@ -284,7 +287,7 @@ public class PlayWebSocket {
 
         try {
             // Journal the player's input
-            journal.appendNarrative(campaignId, "*Player: " + text + "*");
+            journal.appendNarrative(campaignId, formatPlayerInput(text));
 
             CharacterSheet character = journal.readCharacter(campaignId);
             String journalContext = journal.getRecentJournal(campaignId, 30);
@@ -379,13 +382,14 @@ public class PlayWebSocket {
         }
 
         try {
-            journal.appendNarrative(campaignId, "*Player: " + text + "*");
+            journal.appendNarrative(campaignId, formatPlayerInput(text));
 
             CharacterSheet character = journal.readCharacter(campaignId);
             String charCtx = formatCharacterContext(character);
-            String journalCtx = journal.getRecentJournal(campaignId, 100);
+            String journalCtx = journal.getRecentJournal(campaignId, 60);
             String memoryCtx = storyMemory.relevantMemory(campaignId, text);
 
+            memoryProvider.clear(campaignId);
             PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, memoryCtx, text);
             String narrative = OracleService.stripOracleLines(
                     JournalParser.sanitizeNarrative(response.narrative()));
@@ -415,7 +419,7 @@ public class PlayWebSocket {
         try {
             CharacterSheet character = journal.readCharacter(campaignId);
             String charCtx = formatCharacterContext(character);
-            String journalCtx = journal.getRecentJournal(campaignId, 100);
+            String journalCtx = journal.getRecentJournal(campaignId, 60);
             // Use recent journal text as the query so memory retrieval finds relevant past context
             String[] lines = journalCtx.split("\n");
             String memoryQuery = String.join("\n",
@@ -460,7 +464,7 @@ public class PlayWebSocket {
         // Journal the player's action description (if provided) before the roll
         String playerAction = msg.path("playerAction").asText("").trim();
         if (!playerAction.isEmpty()) {
-            journal.appendNarrative(campaignId, "*Player: " + playerAction + "*");
+            journal.appendNarrative(campaignId, formatPlayerInput(playerAction));
         }
 
         // Journal the roll
@@ -502,13 +506,13 @@ public class PlayWebSocket {
         }
 
         try {
-            String journalCtx = journal.getRecentJournal(campaignId, 60);
-            String memoryQuery = moveName + " " + outcome.display();
-            String memoryCtx = storyMemory.relevantMemory(campaignId, memoryQuery);
+            String journalCtx = journal.getRecentJournal(campaignId, 20);
+
+            memoryProvider.clear(campaignId);
             PlayResponse response = assistant.narrateMoveResult(
                     campaignId, moveName, outcome.display(),
                     actionScore, challenge1, challenge2,
-                    moveOutcomeText, journalCtx, memoryCtx);
+                    moveOutcomeText, journalCtx, "");
             String narrative = OracleService.stripOracleLines(
                     JournalParser.sanitizeNarrative(response.narrative()));
 
@@ -619,6 +623,10 @@ public class PlayWebSocket {
             }
         }
         return sb.toString();
+    }
+
+    private String formatPlayerInput(String text) {
+        return "<player>\n" + text.strip() + "\n</player>";
     }
 
     private String errorJson(String message) {

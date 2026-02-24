@@ -16,7 +16,7 @@ public class PlayMemoryProvider implements ChatMemoryProvider {
     @Override
     public ChatMemory get(Object memoryId) {
         return memories.computeIfAbsent(memoryId,
-                id -> MessageWindowChatMemory.withMaxMessages(20));
+                id -> MessageWindowChatMemory.withMaxMessages(6));
     }
 
     public void clear(Object memoryId) {

@@ -305,11 +305,7 @@ class PlayInterface {
         for (const block of grouped) {
             const div = document.createElement('div');
             div.className = 'message ' + (extraClass ? (extraClass + ' ') : '') + (block.type || 'assistant');
-            if (block.type === 'user') {
-                div.textContent = block.html;
-            } else {
-                div.innerHTML = block.html;
-            }
+            div.innerHTML = block.html;
             this.chatContainer.appendChild(div);
         }
         this.scrollToBottom();

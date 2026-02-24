@@ -18,12 +18,15 @@ public class JournalParser {
     public record JournalBlock(String type, String html) {
     }
 
+    private static final String PLAYER_OPEN = "<player>";
+    private static final String PLAYER_CLOSE = "</player>";
+
     private JournalParser() {
     }
 
     /**
      * Split journal content into embeddable exchanges.
-     * Each exchange starts with a player entry ({@code *Player: ...*}) or
+     * Each exchange starts with a player entry ({@code <player>}) or
      * a mechanical entry ({@code > **...**}) and includes all following
      * lines until the next such marker.
      */
@@ -35,14 +38,27 @@ public class JournalParser {
         List<JournalExchange> exchanges = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         int index = 0;
+        boolean inPlayerBlock = false;
 
         for (String line : journalContent.split("\n")) {
             String trimmed = line.trim();
+
+            if (inPlayerBlock) {
+                current.append(line).append("\n");
+                if (isPlayerEntryEnd(trimmed)) {
+                    inPlayerBlock = false;
+                }
+                continue;
+            }
+
             if (isPlayerEntry(trimmed) || isMechanicalEntry(trimmed)) {
                 // Flush previous exchange
                 if (!current.isEmpty()) {
                     exchanges.add(new JournalExchange(index++, current.toString().trim()));
                     current.setLength(0);
+                }
+                if (isPlayerEntry(trimmed)) {
+                    inPlayerBlock = true;
                 }
             }
             if (!trimmed.isEmpty() || !current.isEmpty()) {
@@ -91,31 +107,84 @@ public class JournalParser {
 
     /**
      * Extract the text of the last player input from journal content.
-     * Player entries are formatted as {@code *Player: some text*}.
+     * Player entries are delimited by {@code <player>...</player>} tags.
      *
-     * @return the unwrapped player text, or null if none found
+     * @return the unwrapped player text (preserving internal whitespace), or null if none found
      */
     public static String extractLastPlayerInput(String journalContent) {
-        String last = null;
-        for (String line : journalContent.split("\n")) {
-            String trimmed = line.trim();
-            if (isPlayerEntry(trimmed)) {
-                last = trimmed.substring(8, trimmed.length() - 1).trim();
+        String[] lines = journalContent.split("\n");
+        // Scan backwards for the last </player> then collect back to <player>
+        int closeIdx = -1;
+        for (int i = lines.length - 1; i >= 0; i--) {
+            String trimmed = lines[i].trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            if (closeIdx == -1) {
+                if (isPlayerEntryEnd(trimmed)) {
+                    closeIdx = i;
+                } else if (isPlayerEntry(trimmed) || isMechanicalEntry(trimmed)) {
+                    // Last thing is an open tag or mechanical — no complete player block at end
+                    break;
+                } else {
+                    // Narrative text at end — need to search further back
+                    break;
+                }
+            } else {
+                if (isPlayerEntry(trimmed)) {
+                    return extractPlayerContent(lines, i, closeIdx);
+                }
             }
         }
-        return last;
+        // If we found a trailing block, return it
+        if (closeIdx != -1) {
+            // Edge case: <player> is at line 0
+            for (int i = closeIdx - 1; i >= 0; i--) {
+                if (isPlayerEntry(lines[i].trim())) {
+                    return extractPlayerContent(lines, i, closeIdx);
+                }
+            }
+        }
+        // No trailing block — scan forward for the last complete block anywhere
+        String lastContent = null;
+        boolean inBlock = false;
+        int openIdx = -1;
+        for (int i = 0; i < lines.length; i++) {
+            String trimmed = lines[i].trim();
+            if (!inBlock && isPlayerEntry(trimmed)) {
+                inBlock = true;
+                openIdx = i;
+            } else if (inBlock && isPlayerEntryEnd(trimmed)) {
+                lastContent = extractPlayerContent(lines, openIdx, i);
+                inBlock = false;
+            }
+        }
+        return lastContent;
+    }
+
+    /** Extract the content between player open/close tag lines (exclusive of the tags). */
+    private static String extractPlayerContent(String[] lines, int openIdx, int closeIdx) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = openIdx + 1; i < closeIdx; i++) {
+            if (!sb.isEmpty()) {
+                sb.append("\n");
+            }
+            sb.append(lines[i]);
+        }
+        String result = sb.toString().strip();
+        return result.isEmpty() ? null : result;
     }
 
     /**
      * Check whether the last non-blank line of the journal requires narration.
-     * This is true if the journal ends with a player entry or a mechanical result.
+     * This is true if the journal ends with a player block or a mechanical result.
      */
     public static boolean needsNarration(String journalContent) {
         String[] lines = journalContent.split("\n");
         for (int i = lines.length - 1; i >= 0; i--) {
             String trimmed = lines[i].trim();
             if (!trimmed.isEmpty()) {
-                return isPlayerEntry(trimmed) || isMechanicalEntry(trimmed);
+                return isPlayerEntryEnd(trimmed) || isMechanicalEntry(trimmed);
             }
         }
         return false;
@@ -151,14 +220,14 @@ public class JournalParser {
     }
 
     /**
-     * Check whether the last non-blank line is a player entry.
+     * Check whether the journal ends with a player block ({@code </player>}).
      */
     public static boolean endsWithPlayerEntry(String journalContent) {
         String[] lines = journalContent.split("\n");
         for (int i = lines.length - 1; i >= 0; i--) {
             String trimmed = lines[i].trim();
             if (!trimmed.isEmpty()) {
-                return isPlayerEntry(trimmed);
+                return isPlayerEntryEnd(trimmed);
             }
         }
         return false;
@@ -166,11 +235,12 @@ public class JournalParser {
 
     /**
      * Count the number of player exchanges in the journal context.
+     * Each {@code <player>} opening tag counts as one exchange.
      */
     public static int countExchanges(String journalContext) {
         int count = 0;
         for (String line : journalContext.split("\n")) {
-            if (line.trim().startsWith("*Player:")) {
+            if (isPlayerEntry(line.trim())) {
                 count++;
             }
         }
@@ -178,10 +248,17 @@ public class JournalParser {
     }
 
     /**
-     * Test whether a trimmed line is a player entry: {@code *Player: ...*}
+     * Test whether a trimmed line is a player entry opening tag: {@code <player>}
      */
     public static boolean isPlayerEntry(String trimmedLine) {
-        return trimmedLine.startsWith("*Player:") && trimmedLine.endsWith("*");
+        return PLAYER_OPEN.equals(trimmedLine);
+    }
+
+    /**
+     * Test whether a trimmed line is a player entry closing tag: {@code </player>}
+     */
+    public static boolean isPlayerEntryEnd(String trimmedLine) {
+        return PLAYER_CLOSE.equals(trimmedLine);
     }
 
     /**
@@ -214,9 +291,24 @@ public class JournalParser {
         List<JournalBlock> blocks = new ArrayList<>();
         List<String> currentLines = new ArrayList<>();
         String currentType = null; // "user", "assistant", "mechanical"
+        boolean inPlayerBlock = false;
 
         for (String line : journalContent.split("\n")) {
             String trimmed = line.trim();
+
+            // Handle player block content
+            if (inPlayerBlock) {
+                if (isPlayerEntryEnd(trimmed)) {
+                    inPlayerBlock = false;
+                    // Flush the player block
+                    blocks.add(flushBlock("user", currentLines, augmenter));
+                    currentLines.clear();
+                    currentType = null;
+                } else {
+                    currentLines.add(line);
+                }
+                continue;
+            }
 
             if (trimmed.isEmpty()) {
                 if (!currentLines.isEmpty()) {
@@ -233,7 +325,7 @@ public class JournalParser {
                     currentLines.clear();
                 }
                 currentType = "user";
-                currentLines.add(trimmed.substring(8, trimmed.length() - 1).trim()); // strip *Player: ...*
+                inPlayerBlock = true;
             } else if (isMechanicalEntry(trimmed)) {
                 if (!currentLines.isEmpty() && !"mechanical".equals(currentType)) {
                     blocks.add(flushBlock(currentType, currentLines, augmenter));
@@ -265,17 +357,7 @@ public class JournalParser {
         if (type == null) {
             type = "assistant";
         }
-        String html = switch (type) {
-            case "user" -> escapeHtml(text);
-            case "mechanical" -> augmenter.markdownToHtml(text);
-            default -> augmenter.markdownToHtml(text);
-        };
+        String html = augmenter.markdownToHtml(text);
         return new JournalBlock(type, html);
-    }
-
-    private static String escapeHtml(String text) {
-        return text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;");
     }
 }

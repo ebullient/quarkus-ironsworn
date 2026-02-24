@@ -9,13 +9,8 @@ class JournalParserTest {
     // --- isPlayerEntry ---
 
     @Test
-    void isPlayerEntry_validEntry() {
-        assertTrue(JournalParser.isPlayerEntry("*Player: I draw my sword*"));
-    }
-
-    @Test
-    void isPlayerEntry_emptyPlayerText() {
-        assertTrue(JournalParser.isPlayerEntry("*Player: *"));
+    void isPlayerEntry_openTag() {
+        assertTrue(JournalParser.isPlayerEntry("<player>"));
     }
 
     @Test
@@ -29,8 +24,20 @@ class JournalParserTest {
     }
 
     @Test
-    void isPlayerEntry_italicButNotPlayer() {
-        assertFalse(JournalParser.isPlayerEntry("*This is just italic text*"));
+    void isPlayerEntry_closeTag() {
+        assertFalse(JournalParser.isPlayerEntry("</player>"));
+    }
+
+    // --- isPlayerEntryEnd ---
+
+    @Test
+    void isPlayerEntryEnd_closeTag() {
+        assertTrue(JournalParser.isPlayerEntryEnd("</player>"));
+    }
+
+    @Test
+    void isPlayerEntryEnd_openTag() {
+        assertFalse(JournalParser.isPlayerEntryEnd("<player>"));
     }
 
     // --- isMechanicalEntry ---
@@ -77,24 +84,25 @@ class JournalParserTest {
     }
 
     @Test
-    void isMechanicalEntry_playerEntry() {
-        assertFalse(JournalParser.isMechanicalEntry("*Player: I attack the beast*"));
+    void isMechanicalEntry_playerOpenTag() {
+        assertFalse(JournalParser.isMechanicalEntry("<player>"));
     }
 
     @Test
     void isMechanicalEntry_boldWithoutBlockquote() {
-        // Bold text without blockquote prefix is NOT a mechanical entry
         assertFalse(JournalParser.isMechanicalEntry("**Face Danger** (+edge): Action 5, Challenge 3|7 → **Strong hit**"));
     }
 
     // --- needsNarration ---
 
     @Test
-    void needsNarration_endsWithPlayerEntry() {
+    void needsNarration_endsWithPlayerBlock() {
         String journal = """
                 The story begins...
 
-                *Player: I head north toward the ruins*
+                <player>
+                I head north toward the ruins.
+                </player>
                 """;
         assertTrue(JournalParser.needsNarration(journal));
     }
@@ -102,7 +110,9 @@ class JournalParserTest {
     @Test
     void needsNarration_endsWithMechanicalEntry() {
         String journal = """
-                *Player: I try to dodge the trap*
+                <player>
+                I try to dodge the trap.
+                </player>
 
                 > **Face Danger** (+edge): Action 5, Challenge 3|7 → **Strong hit**
                 """;
@@ -112,7 +122,9 @@ class JournalParserTest {
     @Test
     void needsNarration_endsWithNarrative() {
         String journal = """
-                *Player: I draw my sword*
+                <player>
+                I draw my sword.
+                </player>
 
                 The blade gleams in the torchlight. Your adversary takes a step back,
                 eyes widening at the sight of the iron weapon.
@@ -142,7 +154,7 @@ class JournalParserTest {
 
     @Test
     void needsNarration_trailingBlankLinesAfterPlayer() {
-        String journal = "*Player: I search the room*\n\n\n";
+        String journal = "<player>\nI search the room.\n</player>\n\n\n";
         assertTrue(JournalParser.needsNarration(journal));
     }
 
@@ -156,19 +168,19 @@ class JournalParserTest {
 
     @Test
     void endsWithPlayerEntry_true() {
-        String journal = "Some text\n\n*Player: My action*\n";
+        String journal = "Some text\n\n<player>\nMy action.\n</player>\n";
         assertTrue(JournalParser.endsWithPlayerEntry(journal));
     }
 
     @Test
     void endsWithPlayerEntry_falseWhenMechanical() {
-        String journal = "*Player: I attack*\n\n> **Strike** (+iron): Action 3, Challenge 8|9 → **Miss**\n";
+        String journal = "<player>\nI attack.\n</player>\n\n> **Strike** (+iron): Action 3, Challenge 8|9 → **Miss**\n";
         assertFalse(JournalParser.endsWithPlayerEntry(journal));
     }
 
     @Test
     void endsWithPlayerEntry_falseWhenNarrative() {
-        String journal = "*Player: hello*\n\nThe world turns dark.\n";
+        String journal = "<player>\nhello\n</player>\n\nThe world turns dark.\n";
         assertFalse(JournalParser.endsWithPlayerEntry(journal));
     }
 
@@ -176,22 +188,26 @@ class JournalParserTest {
 
     @Test
     void extractLastPlayerInput_single() {
-        String journal = "*Player: I look around*\n\nSome response.";
-        assertEquals("I look around", JournalParser.extractLastPlayerInput(journal));
+        String journal = "<player>\nI look around.\n</player>\n\nSome response.";
+        assertEquals("I look around.", JournalParser.extractLastPlayerInput(journal));
     }
 
     @Test
     void extractLastPlayerInput_multiple() {
         String journal = """
-                *Player: First action*
+                <player>
+                First action.
+                </player>
 
                 Response one.
 
-                *Player: Second action*
+                <player>
+                Second action.
+                </player>
 
                 Response two.
                 """;
-        assertEquals("Second action", JournalParser.extractLastPlayerInput(journal));
+        assertEquals("Second action.", JournalParser.extractLastPlayerInput(journal));
     }
 
     @Test
@@ -202,8 +218,39 @@ class JournalParserTest {
 
     @Test
     void extractLastPlayerInput_preservesInternalSpaces() {
-        String journal = "*Player: I carefully open the old wooden door*";
-        assertEquals("I carefully open the old wooden door", JournalParser.extractLastPlayerInput(journal));
+        String journal = "<player>\nI carefully open the old wooden door.\n</player>";
+        assertEquals("I carefully open the old wooden door.", JournalParser.extractLastPlayerInput(journal));
+    }
+
+    @Test
+    void extractLastPlayerInput_multiLine() {
+        String journal = """
+                <player>
+                I take deep breaths to remain calm.
+
+                "What does the fabric have on it?"
+
+                I slowly sidestep away from the bear.
+                </player>
+                """;
+        assertEquals(
+                "I take deep breaths to remain calm.\n\n\"What does the fabric have on it?\"\n\nI slowly sidestep away from the bear.",
+                JournalParser.extractLastPlayerInput(journal));
+    }
+
+    @Test
+    void extractLastPlayerInput_multiLineFollowedByNarrative() {
+        String journal = """
+                <player>
+                First line of input.
+
+                Second line of input.
+                </player>
+
+                The narrator responds with vivid prose.
+                """;
+        assertEquals("First line of input.\n\nSecond line of input.",
+                JournalParser.extractLastPlayerInput(journal));
     }
 
     // --- countExchanges ---
@@ -215,21 +262,27 @@ class JournalParserTest {
 
     @Test
     void countExchanges_single() {
-        assertEquals(1, JournalParser.countExchanges("*Player: hello*\n\nResponse."));
+        assertEquals(1, JournalParser.countExchanges("<player>\nhello\n</player>\n\nResponse."));
     }
 
     @Test
     void countExchanges_multiple() {
         String journal = """
-                *Player: first*
+                <player>
+                first
+                </player>
 
                 Response one.
 
-                *Player: second*
+                <player>
+                second
+                </player>
 
                 Response two.
 
-                *Player: third*
+                <player>
+                third
+                </player>
                 """;
         assertEquals(3, JournalParser.countExchanges(journal));
     }
@@ -273,44 +326,45 @@ class JournalParserTest {
         assertEquals("", JournalParser.sanitizeNarrative(""));
     }
 
-    // --- Full journal scenario ---
+    // --- Full journal scenarios ---
 
     @Test
     void fullJournalScenario_mixedContent() {
         String journal = """
-                *Player: I approach the bridge cautiously*
+                <player>
+                I approach the bridge cautiously.
+                </player>
 
                 The old stone bridge creaks under your weight. Mist rises from the chasm below.
 
-                *Player: I try to cross quickly*
+                <player>
+                I try to cross quickly.
+                </player>
 
                 > **Face Danger** (+edge): Action 5, Challenge 3|7 → **Strong hit**
 
                 You dash across the bridge, boots pounding on ancient stone.
                 The far side holds firm as you reach safety.
 
-                *Player: I look for shelter*
+                <player>
+                I look for shelter.
+                </player>
 
                 > **Oracle** (Action / Theme): 42 → Discovery
                 """;
 
-        // Last player input should be the most recent one
-        assertEquals("I look for shelter", JournalParser.extractLastPlayerInput(journal));
-
-        // Journal ends with oracle result (mechanical) — needs narration
+        assertEquals("I look for shelter.", JournalParser.extractLastPlayerInput(journal));
         assertTrue(JournalParser.needsNarration(journal));
-
-        // Last line is mechanical, not player
         assertFalse(JournalParser.endsWithPlayerEntry(journal));
-
-        // Three player exchanges
         assertEquals(3, JournalParser.countExchanges(journal));
     }
 
     @Test
     void fullJournalScenario_endsWithNarrative() {
         String journal = """
-                *Player: I search the ruins*
+                <player>
+                I search the ruins.
+                </player>
 
                 > **Gather Information** (+wits): Action 7, Challenge 4|5 → **Strong hit**
 
@@ -318,8 +372,62 @@ class JournalParserTest {
                 The parchment is brittle but legible.
                 """;
 
-        assertTrue(JournalParser.needsNarration(journal) == false);
-        assertEquals("I search the ruins", JournalParser.extractLastPlayerInput(journal));
+        assertFalse(JournalParser.needsNarration(journal));
+        assertEquals("I search the ruins.", JournalParser.extractLastPlayerInput(journal));
         assertEquals(1, JournalParser.countExchanges(journal));
+    }
+
+    @Test
+    void fullJournalScenario_multiLinePlayer() {
+        String journal = """
+                <player>
+                I approach the bridge cautiously.
+                </player>
+
+                The old stone bridge creaks under your weight.
+
+                <player>
+                I take deep breaths to remain calm. While I really want to look at
+                that scrap of fabric, there is no way I'm going to fight a bear for it.
+
+                "What does the fabric have on it? a button? something shiny?"
+
+                I slowly sidestep, moving away from the bear.
+                </player>
+
+                > **Endure stress** (+heart): Action 10, Challenge 10|4 → **Weak Hit**
+                """;
+
+        String expected = """
+                I take deep breaths to remain calm. While I really want to look at
+                that scrap of fabric, there is no way I'm going to fight a bear for it.
+
+                "What does the fabric have on it? a button? something shiny?"
+
+                I slowly sidestep, moving away from the bear.""".strip();
+
+        assertEquals(expected, JournalParser.extractLastPlayerInput(journal));
+        assertEquals(2, JournalParser.countExchanges(journal));
+        assertTrue(JournalParser.needsNarration(journal));
+        assertFalse(JournalParser.endsWithPlayerEntry(journal));
+    }
+
+    @Test
+    void parseExchanges_multiLinePlayerIsOneExchange() {
+        String journal = """
+                <player>
+                Line one.
+
+                Line two.
+                </player>
+
+                The narrator responds.
+                """;
+        var exchanges = JournalParser.parseExchanges(journal);
+        // Player block + following narrative = one exchange
+        assertEquals(1, exchanges.size());
+        assertTrue(exchanges.get(0).content().contains("Line one"));
+        assertTrue(exchanges.get(0).content().contains("Line two"));
+        assertTrue(exchanges.get(0).content().contains("narrator responds"));
     }
 }
