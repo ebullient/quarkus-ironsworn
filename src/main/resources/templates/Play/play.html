@@ -65,6 +65,10 @@
                 <!-- Move badge (hidden until move selected) -->
                 <div id="move-badge" class="hidden">
                     <span id="roll-move-name"></span>
+                    <span id="roll-stat-prompt">Select a stat</span>
+                    <label class="adds-input" title="Situational modifier (+1, +2, etc.)">
+                        <span>+</span><input type="number" id="roll-adds" min="0" max="9" value="0">
+                    </label>
                     <button id="roll-cancel" title="Cancel move">&times;</button>
                 </div>
                 <textarea
@@ -77,7 +81,6 @@
                     <button id="send-btn">Send</button>
                     <!-- Roll controls (hidden until move selected) -->
                     <div id="roll-controls" class="hidden">
-                        <span id="roll-stat-prompt">Select a stat</span>
                         <button id="roll-btn" class="btn-primary" disabled>Roll</button>
                         <label class="manual-toggle">
                             <input type="checkbox" id="manual-dice-toggle"> Dice

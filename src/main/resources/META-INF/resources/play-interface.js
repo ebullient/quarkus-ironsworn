@@ -701,6 +701,7 @@ class PlayInterface {
         if (!this.pendingMove || !this.selectedStat || !this.character) return;
 
         const statValue = this.character[this.selectedStat];
+        const adds = parseInt(document.getElementById('roll-adds').value) || 0;
         let actionDie, challenge1, challenge2;
 
         if (this.manualDiceToggle.checked) {
@@ -717,7 +718,7 @@ class PlayInterface {
             challenge2 = Math.floor(Math.random() * 10) + 1;
         }
 
-        const actionScore = Math.min(10, actionDie + statValue);
+        const actionScore = Math.min(10, actionDie + statValue + adds);
         const outcome = this.computeOutcome(actionScore, challenge1, challenge2);
 
         // Show player's action description before the mechanical result
@@ -727,8 +728,9 @@ class PlayInterface {
         }
 
         const outcomeClass = outcome.replace('_', '-').toLowerCase();
+        const addsLabel = adds > 0 ? ' +' + adds + ' adds' : '';
         this.addMechanicalMessage(
-            '<strong>' + this.pendingMove.name + '</strong> (+' + this.selectedStat + ' ' + statValue + ')<br>' +
+            '<strong>' + this.pendingMove.name + '</strong> (+' + this.selectedStat + ' ' + statValue + addsLabel + ')<br>' +
             'Action die: ' + actionDie + ' → Score: ' + actionScore + '<br>' +
             'Challenge: ' + challenge1 + ' / ' + challenge2 + '<br>' +
             '<strong class="outcome-' + outcomeClass + '">' + outcome.replace('_', ' ') + '</strong>',
@@ -739,13 +741,13 @@ class PlayInterface {
         if (this.canBurnMomentum(momentum, actionScore, challenge1, challenge2, outcome)) {
             this.pendingRollData = {
                 actionDie, challenge1, challenge2, actionScore, statValue,
-                outcome, momentum
+                adds, outcome, momentum
             };
             this.showMomentumBurn(momentum, challenge1, challenge2, outcome);
             return;
         }
 
-        this.finalizeRoll(actionDie, challenge1, challenge2, actionScore, outcome);
+        this.finalizeRoll(actionDie, challenge1, challenge2, actionScore, outcome, adds);
     }
 
     computeOutcome(actionScore, challenge1, challenge2) {
@@ -792,17 +794,17 @@ class PlayInterface {
 
         this.momentumBurnPanel.classList.add('hidden');
         this.pendingRollData = null;
-        this.finalizeRoll(data.actionDie, data.challenge1, data.challenge2, data.momentum, burnOutcome);
+        this.finalizeRoll(data.actionDie, data.challenge1, data.challenge2, data.momentum, burnOutcome, data.adds);
     }
 
     skipBurn() {
         const data = this.pendingRollData;
         this.momentumBurnPanel.classList.add('hidden');
         this.pendingRollData = null;
-        this.finalizeRoll(data.actionDie, data.challenge1, data.challenge2, data.actionScore, data.outcome);
+        this.finalizeRoll(data.actionDie, data.challenge1, data.challenge2, data.actionScore, data.outcome, data.adds);
     }
 
-    finalizeRoll(actionDie, challenge1, challenge2, actionScore, outcome) {
+    finalizeRoll(actionDie, challenge1, challenge2, actionScore, outcome, adds = 0) {
         this.disableInput();
         this.addLoadingIndicator();
 
@@ -813,7 +815,7 @@ class PlayInterface {
             moveKey: this.pendingMove.key,
             stat: this.selectedStat,
             statValue: this.character[this.selectedStat],
-            adds: 0,
+            adds,
             actionDie,
             challenge1,
             challenge2,
@@ -839,6 +841,7 @@ class PlayInterface {
         this.momentumBurnPanel.classList.add('hidden');
         this.manualDiceToggle.checked = false;
         this.manualDicePanel.classList.add('hidden');
+        document.getElementById('roll-adds').value = 0;
         this.messageInput.value = '';
         this.messageInput.style.height = 'auto';
         this.messageInput.placeholder = this.creationMode ? 'Tell the guide about your character...' : 'What do you do?';
