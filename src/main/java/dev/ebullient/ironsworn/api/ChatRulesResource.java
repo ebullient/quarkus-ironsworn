@@ -1,5 +1,7 @@
 package dev.ebullient.ironsworn.api;
 
+import java.util.Map;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -12,7 +14,6 @@ import jakarta.ws.rs.core.MediaType;
 import org.jboss.resteasy.reactive.RestQuery;
 
 import dev.ebullient.ironsworn.chat.ChatAssistant;
-import dev.ebullient.ironsworn.chat.JsonChatResponse;
 import dev.ebullient.ironsworn.chat.MarkdownAugmenter;
 
 /**
@@ -32,21 +33,21 @@ public class ChatRulesResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public String chat(@RestQuery String question) {
-        JsonChatResponse chatResponse = chatService.rules(question);
-        return prettify.markdownToHtml(chatResponse.response());
+        String markdownResponse = chatService.rules(question);
+        return prettify.markdownToHtml(markdownResponse);
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public JsonChatResponse chatJson(@RestQuery String question) {
-        return chatService.rules(question);
+    public Map<String, String> chatJson(@RestQuery String question) {
+        return Map.of("response", chatService.rules(question));
     }
 
     @POST
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.TEXT_HTML)
     public String postChat(String question) {
-        JsonChatResponse chatResponse = chatService.rules(question);
-        return prettify.markdownToHtml(chatResponse.response());
+        String markdownResponse = chatService.rules(question);
+        return prettify.markdownToHtml(markdownResponse);
     }
 }
