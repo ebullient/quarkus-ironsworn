@@ -1,8 +1,7 @@
-# Agents
+# Agent Instructions
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) for project overview, build commands, code formatting rules, and architecture details.
+This repo keeps AI-specific guidance in `CLAUDE.md`.
 
-## Agent-Specific Notes
-
-- The `Datasworn/` package contains generated types — do not edit these files.
-- Code formatting is enforced by the build. Run `./mvnw process-sources` to format before committing, or skip with `-DskipFormat`.
+- Read `CLAUDE.md` first (coding/workflow rules).
+- Use `CONTRIBUTING.md` for architecture + build/run commands.
+- Do not edit generated files in `src/main/java/Datasworn/`.

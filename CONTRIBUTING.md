@@ -14,20 +14,43 @@ An AI-powered solo Ironsworn RPG web application built with Quarkus. Players cre
 ./mvnw test -Dtest=TestClassName#testMethodName  # Run a single test method
 ```
 
-**Prerequisites**: Ollama running locally with `llama3.2` and `nomic-embed-text` models. Neo4j instance for embeddings.
+## Local Dependencies
+
+**Ollama (required)**:
+
+```shell
+ollama serve
+ollama pull llama3.2
+ollama pull nomic-embed-text
+```
+
+**Neo4j (required for embeddings / story memory)**:
+
+- In dev mode, Quarkus is configured to use `compose.yaml` for Dev Services (Docker required).
+- Or run it yourself:
+
+```shell
+docker compose up -d neo4j
+```
+
+Neo4j defaults (dev): Bolt `bolt://localhost:7687`, auth `neo4j/devpassword`, HTTP UI at `http://localhost:7474`.
 
 ## Code Formatting
 
-The build enforces formatting via `formatter-maven-plugin` (Eclipse style from `src/ide-config/eclipse-format.xml`) and `impsort-maven-plugin` (import ordering: `java., javax., jakarta., org., com.`; removes unused imports). Both run automatically during build. Skip with `-DskipFormat`.
+The build enforces formatting via `formatter-maven-plugin` (Eclipse style from `src/ide-config/eclipse-format.xml`) and `impsort-maven-plugin` (import ordering: `java., javax., jakarta., org., com.`; removes unused imports). Both run automatically during build. Skip with `-DskipFormat=true`.
 
 ## Architecture
 
 ### Web Layer (Renarde MVC + REST + WebSocket)
 
 - **`web/`** — Renarde controllers serving Qute templates for server-rendered pages
-    - `/` landing page, `/chat` and `/rules` chat interfaces, `/play/{campaignId}` game interface, `/reference/moves` and `/reference/oracles` rules reference
+    - `/` landing page, `/chat` and `/rules` chat interfaces
+    - `/play/` campaign list and `/play/{campaignId}` game interface
+    - `/campaign/{campaignId}` campaign assistant chat
+    - `/reference/moves` and `/reference/oracles` rules reference
 - **`api/`** — REST endpoints for chat, moves, oracles, and gameplay
-- Primary gameplay WebSocket at `/ws/play/{campaignId}` — handles the full play loop: character creation, narrative input, move results, oracle rolls, progress tracking. Message types: `creation_chat`, `finalize_creation`, `narrative`, `move_result`, `oracle`, `oracle_manual`, `progress_mark`, `character_update`.
+- Primary gameplay WebSocket at `/ws/play/{campaignId}` — handles the full play loop: character creation, narrative input, move results, oracle rolls, progress tracking.
+    - Client → server message types: `creation_chat`, `finalize_creation`, `narrative`, `move_result`, `inspire`, `oracle`, `oracle_manual`, `progress_mark`, `character_update`, `backtrack`.
 
 ### AI/Chat Layer (Quarkus LangChain4j)
 
