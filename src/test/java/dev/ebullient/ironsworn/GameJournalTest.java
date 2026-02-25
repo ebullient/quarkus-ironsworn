@@ -1,6 +1,8 @@
 package dev.ebullient.ironsworn;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -147,9 +149,9 @@ class GameJournalTest {
     @Test
     void appendNarrative_playerEntry_formatCompatibleWithParser() {
         journal.createStubCampaign("Test Hero");
-        journal.appendNarrative("test-hero", "*Player: I search the room*");
+        journal.appendNarrative("test-hero", "<player>\nI search the room\n</player>");
 
-        String recentJournal = journal.getRecentJournal("test-hero", 100);
+        String recentJournal = journal.getRecentJournal("test-hero", 3);
 
         assertTrue(JournalParser.needsNarration(recentJournal),
                 "Player entry in journal should trigger needsNarration");
@@ -167,11 +169,11 @@ class GameJournalTest {
     @Test
     void getRecentJournal_withContent() {
         journal.createStubCampaign("Test Hero");
-        journal.appendNarrative("test-hero", "*Player: hello*");
+        journal.appendNarrative("test-hero", "<player>\nhello\n</player>");
         journal.appendNarrative("test-hero", "A response.");
 
         String recent = journal.getRecentJournal("test-hero", 100);
-        assertTrue(recent.contains("*Player: hello*"));
+        assertTrue(recent.contains("<player>\nhello\n</player>"));
         assertTrue(recent.contains("A response."));
     }
 
@@ -229,14 +231,14 @@ class GameJournalTest {
         journal.updateCharacter("ash", withVows);
 
         // Player acts
-        journal.appendNarrative("ash", "*Player: I head into the Hinterlands*");
+        journal.appendNarrative("ash", "<player>\nI head into the Hinterlands\n</player>");
 
         // Narrator responds
         journal.appendNarrative("ash",
                 "The path narrows as you leave the settlement behind. Twisted oaks line the trail.");
 
         // Player makes a move
-        journal.appendNarrative("ash", "*Player: I try to navigate through the forest*");
+        journal.appendNarrative("ash", "<player>\nI try to navigate through the forest\n</player>");
 
         // Mechanical result
         journal.appendMechanical("ash",
