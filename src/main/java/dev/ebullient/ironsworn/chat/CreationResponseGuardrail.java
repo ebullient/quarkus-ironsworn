@@ -20,6 +20,13 @@ public class CreationResponseGuardrail implements OutputGuardrail {
     public OutputGuardrailResult validate(AiMessage responseFromLLM) {
         try {
             CreationResponse response = objectMapper.readValue(responseFromLLM.text(), CreationResponse.class);
+            if (response.message() == null || response.message().isBlank()) {
+                return reprompt("Missing message", new IllegalArgumentException("message is blank"),
+                        """
+                                Return a valid JSON object with fields: message (string), suggestedVow (string or null).
+                                The message field MUST be non-empty text (1-2 paragraphs).
+                                """.trim());
+            }
             return OutputGuardrailResult.successWith(responseFromLLM.text(), response);
         } catch (JsonProcessingException e) {
             return reprompt("Invalid JSON", e,
