@@ -19,6 +19,10 @@ public record CharacterSheet(
         return new CharacterSheet(name, 1, 1, 1, 1, 1, 5, 5, 5, 2, List.of());
     }
 
+    public boolean hasDefaultStats() {
+        return edge == 1 && heart == 1 && iron == 1 && shadow == 1 && wits == 1;
+    }
+
     public int stat(String statName) {
         return switch (statName.toLowerCase()) {
             case "edge" -> edge;

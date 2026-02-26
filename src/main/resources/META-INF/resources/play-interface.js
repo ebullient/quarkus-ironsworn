@@ -82,6 +82,9 @@ class PlayInterface {
                 // Server is re-engaging the guide after resume — show loading
                 this.addLoadingIndicator();
                 break;
+            case 'delta':
+                this.handleDelta(msg);
+                break;
             case 'play_resume':
                 this.handlePlayResume(msg);
                 break;
@@ -103,6 +106,9 @@ class PlayInterface {
                 break;
             case 'ready':
                 this.enableInput();
+                break;
+            case 'slash_command_result':
+                this.handleSlashCommandResult(msg);
                 break;
             case 'backtrack_done':
                 this.handleBacktrackDone();
@@ -279,6 +285,13 @@ class PlayInterface {
         widget.classList.add('confirmed');
     }
 
+    handleDelta(msg) {
+        const el = document.getElementById('loading');
+        if (el) {
+            el.textContent = msg.text || '';
+        }
+    }
+
     handleCreationResponse(msg) {
         this.removeLoadingIndicator();
         // Add guide's message to chat
@@ -431,6 +444,14 @@ class PlayInterface {
             }
             return;
         }
+        const text = this.messageInput.value.trim();
+        if (text.startsWith('/')) {
+            this.messageInput.value = '';
+            this.messageInput.style.height = 'auto';
+            this.messageInput.focus();
+            this.send({ type: 'slash_command', text });
+            return;
+        }
         if (this.creationMode) {
             this.sendCreationChat();
         } else {
@@ -572,6 +593,25 @@ class PlayInterface {
         console.log('[character] received update:', msg.character);
         this.character = msg.character;
         this.updateCharacterDisplay();
+    }
+
+    handleSlashCommandResult(msg) {
+        if (msg.command === 'status' && msg.character) {
+            const c = msg.character;
+            const phase = msg.phase || (this.creationMode ? 'creation' : 'active');
+            const vows = (c.vows && c.vows.length > 0)
+                ? c.vows.map(v => `${v.description} (${String(v.rank || '').toLowerCase()} ${v.progress}/10)`).join(', ')
+                : '(none)';
+            this.addSystemMessage(
+                `Status: phase=${phase}; ${c.name} — Edge ${c.edge} Heart ${c.heart} Iron ${c.iron} Shadow ${c.shadow} Wits ${c.wits}; ` +
+                `Health ${c.health} Spirit ${c.spirit} Supply ${c.supply} Momentum ${c.momentum}; ` +
+                `Vows: ${vows}`
+            );
+            return;
+        }
+        if (msg.message) {
+            this.addSystemMessage(msg.message);
+        }
     }
 
     // --- Meters ---

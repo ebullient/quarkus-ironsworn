@@ -1,7 +1,5 @@
 package dev.ebullient.ironsworn;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -11,21 +9,9 @@ import jakarta.inject.Inject;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import dev.ebullient.ironsworn.chat.CreationAssistant;
-import dev.ebullient.ironsworn.chat.CreationResponse;
-import dev.ebullient.ironsworn.chat.InspireResult;
-import dev.ebullient.ironsworn.chat.MarkdownAugmenter;
-import dev.ebullient.ironsworn.chat.OracleService;
-import dev.ebullient.ironsworn.chat.PlayAssistant;
 import dev.ebullient.ironsworn.chat.PlayMemoryProvider;
-import dev.ebullient.ironsworn.chat.PlayResponse;
 import dev.ebullient.ironsworn.memory.StoryMemoryIndexer;
-import dev.ebullient.ironsworn.memory.StoryMemoryService;
 import dev.ebullient.ironsworn.model.CharacterSheet;
-import dev.ebullient.ironsworn.model.OracleResult;
-import dev.ebullient.ironsworn.model.Outcome;
-import dev.ebullient.ironsworn.model.Rank;
-import dev.ebullient.ironsworn.model.Vow;
 import io.quarkus.logging.Log;
 import io.quarkus.websockets.next.OnClose;
 import io.quarkus.websockets.next.OnError;
@@ -45,28 +31,16 @@ public class PlayWebSocket {
     WebSocketConnection connection;
 
     @Inject
-    PlayAssistant assistant;
+    CreationEngine creationEngine;
 
     @Inject
-    OracleService oracleService;
-
-    @Inject
-    CreationAssistant creationAssistant;
+    GamePlayEngine gamePlayEngine;
 
     @Inject
     PlayMemoryProvider memoryProvider;
 
     @Inject
     GameJournal journal;
-
-    @Inject
-    IronswornMechanics mechanics;
-
-    @Inject
-    MarkdownAugmenter prettify;
-
-    @Inject
-    StoryMemoryService storyMemory;
 
     @Inject
     StoryMemoryIndexer storyMemoryIndexer;
@@ -91,128 +65,12 @@ public class PlayWebSocket {
 
         try {
             return journal.isCreationPhase(campaignId)
-                    ? handleCreationPhaseOpen()
-                    : handleActivePlayOpen();
+                    ? creationEngine.handleOpen(ctx())
+                    : gamePlayEngine.handleOpen(ctx());
         } catch (Exception e) {
             Log.errorf(e, "Failed to open campaign: %s", campaignId);
             return errorJson("Campaign not found: " + campaignId);
         }
-    }
-
-    private String handleCreationPhaseOpen() throws Exception {
-        // Send creation phase indicator
-        connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                "type", "creation_phase",
-                "phase", "creation")));
-
-        String existingJournal = journal.getRecentJournal(campaignId, 100);
-        if (existingJournal.isBlank()) {
-            // Fresh creation — generate and send inspiration
-            return handleInspireCreation();
-        }
-
-        // Replay existing conversation to the client as pre-rendered blocks
-        var blocks = JournalParser.parseToBlocks(existingJournal, prettify);
-        connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                "type", "creation_resume",
-                "blocks", blocks)));
-        CharacterSheet character = journal.readCharacter(campaignId);
-        connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                "type", "creation_ready",
-                "character", character)));
-
-        // Re-engage the guide with the last player message
-        String lastPlayerInput = extractLastPlayerInput(existingJournal);
-        if (lastPlayerInput == null) {
-            return objectMapper.writeValueAsString(Map.of(
-                    "type", "creation_ready",
-                    "character", character));
-        }
-
-        return reengageCreationGuide(character, existingJournal, lastPlayerInput);
-    }
-
-    private String reengageCreationGuide(CharacterSheet character, String existingJournal, String lastPlayerInput)
-            throws Exception {
-        String journalContext = journal.getRecentJournal(campaignId, 30);
-        int exchangeCount = countExchanges(journalContext);
-        String vowInstruction = exchangeCount >= 3
-                ? "IMPORTANT: The player has responded %d times. You MUST now suggest a background vow. Set suggestedVow to a short imperative phrase based on the story (e.g. \"Find my lost sister\"). Do NOT ask more questions."
-                        .formatted(exchangeCount)
-                : "";
-        memoryProvider.clear(campaignId);
-        CreationResponse response = creationAssistant.guide(
-                campaignId, character.name(),
-                character.edge(), character.heart(), character.iron(),
-                character.shadow(), character.wits(),
-                journalContext, exchangeCount, lastPlayerInput,
-                vowInstruction);
-
-        String guideMessage = response.message() != null ? response.message() : "";
-        if (!guideMessage.isBlank()) {
-            journal.appendNarrative(campaignId, guideMessage);
-        }
-
-        return objectMapper.writeValueAsString(Map.of(
-                "type", "creation_response",
-                "message", guideMessage,
-                "suggestedVow", response.suggestedVow()));
-    }
-
-    private String handleActivePlayOpen() throws Exception {
-        CharacterSheet character = journal.readCharacter(campaignId);
-
-        // Replay recent journal for active play as pre-rendered blocks
-        String existingJournal = journal.getRecentJournal(campaignId, 100);
-        if (!existingJournal.isBlank()) {
-            var blocks = JournalParser.parseToBlocks(existingJournal, prettify);
-            connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                    "type", "play_resume",
-                    "blocks", blocks)));
-        }
-
-        connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                "type", "character_update",
-                "character", character)));
-
-        // If the last journal entry needs narration (player input or move result), re-engage
-        if (needsNarration(existingJournal)) {
-            return reengageNarration(character, existingJournal);
-        }
-
-        return objectMapper.writeValueAsString(Map.of("type", "ready"));
-    }
-
-    private String reengageNarration(CharacterSheet character, String existingJournal) throws Exception {
-        String charCtx = formatCharacterContext(character);
-        String journalCtx = journal.getRecentJournal(campaignId, 30);
-        String resumePrompt = endsWithPlayerEntry(existingJournal)
-                ? extractLastPlayerInput(existingJournal)
-                : "Continue the story based on what just happened.";
-        String memoryCtx = storyMemory.relevantMemory(campaignId, resumePrompt);
-
-        AtomicBoolean lock = GENERATION_LOCKS.get(campaignId);
-        if (lock != null && lock.compareAndSet(false, true)) {
-            try {
-                connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                        "type", "loading")));
-                PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, memoryCtx, resumePrompt);
-                String narrative = OracleService.stripOracleLines(
-                        JournalParser.sanitizeNarrative(response.narrative()));
-                journal.appendNarrative(campaignId, narrative);
-                return objectMapper.writeValueAsString(Map.of(
-                        "type", "narrative",
-                        "narrative", narrative,
-                        "narrativeHtml", prettify.markdownToHtml(narrative),
-                        "blocks", blocksForNarrative(narrative),
-                        "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
-                        "location", response.location() != null ? response.location() : ""));
-            } finally {
-                lock.set(false);
-            }
-        }
-
-        return objectMapper.writeValueAsString(Map.of("type", "ready"));
     }
 
     @OnClose
@@ -234,18 +92,19 @@ public class PlayWebSocket {
             String type = msg.path("type").asText();
 
             return switch (type) {
-                // Creation flow
-                case "creation_chat" -> handleCreationChat(msg);
-                case "finalize_creation" -> handleFinalizeCreation(msg);
-                // Gameplay flow
-                case "narrative" -> handleNarrative(msg);
-                case "move_result" -> handleMoveResult(msg);
-                case "inspire" -> handleInspireMe();
-                case "oracle" -> handleOracle(msg);
-                case "oracle_manual" -> handleOracleManual(msg);
-                case "progress_mark" -> handleProgressMark(msg);
-                case "character_update" -> handleCharacterUpdate(msg);
-                case "backtrack" -> handleBacktrack(msg);
+                // Creation flow (delegated to CreationEngine)
+                case "creation_chat" -> withLock(() -> creationEngine.handleChat(ctx(), msg));
+                case "finalize_creation" -> creationEngine.handleFinalize(ctx(), msg);
+                // Gameplay flow (delegated to GamePlayEngine)
+                case "narrative" -> withLock(() -> gamePlayEngine.handleNarrative(ctx(), msg));
+                case "move_result" -> withLock(() -> gamePlayEngine.handleMoveResult(ctx(), msg));
+                case "inspire" -> withLock(() -> gamePlayEngine.handleInspireMe(ctx()));
+                case "oracle" -> gamePlayEngine.handleOracle(ctx(), msg);
+                case "oracle_manual" -> gamePlayEngine.handleOracleManual(ctx(), msg);
+                case "progress_mark" -> gamePlayEngine.handleProgressMark(ctx(), msg);
+                case "character_update" -> gamePlayEngine.handleCharacterUpdate(ctx(), msg);
+                case "backtrack" -> gamePlayEngine.handleBacktrack(ctx(), msg);
+                case "slash_command" -> handleSlashCommand(msg);
                 default -> errorJson("Unknown message type: " + type);
             };
         } catch (Exception e) {
@@ -254,390 +113,86 @@ public class PlayWebSocket {
         }
     }
 
-    // --- Creation flow ---
-
-    private String handleInspireCreation() throws Exception {
-        AtomicBoolean lock = GENERATION_LOCKS.get(campaignId);
-        if (lock != null && !lock.compareAndSet(false, true)) {
-            return errorJson("Generation already in progress");
-        }
-
-        try {
-            String sessionId = "inspire-" + campaignId;
-            CreationResponse response = creationAssistant.inspire(sessionId);
-            return objectMapper.writeValueAsString(Map.of(
-                    "type", "inspire-create",
-                    "text", response.message() != null ? response.message() : ""));
-        } finally {
-            if (lock != null) {
-                lock.set(false);
+    private EngineContext ctx() {
+        GameEventEmitter emitter = new GameEventEmitter() {
+            @Override
+            public void emit(String json) {
+                connection.sendTextAndAwait(json);
             }
-        }
+
+            @Override
+            public void emit(Map<String, Object> map) throws Exception {
+                connection.sendTextAndAwait(objectMapper.writeValueAsString(map));
+            }
+
+            @Override
+            public void delta(String text) throws Exception {
+                connection.sendTextAndAwait(objectMapper.writeValueAsString(
+                        Map.of("type", "delta", "text", text)));
+            }
+
+            @Override
+            public String errorJson(String message) {
+                return PlayWebSocket.this.errorJson(message);
+            }
+        };
+        return new EngineContext(campaignId, emitter);
     }
 
-    private String handleCreationChat(JsonNode msg) throws Exception {
-        String text = msg.path("text").asText();
-        if (text.isBlank()) {
-            return errorJson("Empty text");
+    private String handleSlashCommand(JsonNode msg) throws Exception {
+        String text = msg.path("text").asText("").trim();
+        if (text.isBlank() || !text.startsWith("/")) {
+            return objectMapper.writeValueAsString(Map.of(
+                    "type", "slash_command_result",
+                    "command", "unknown",
+                    "message", "Unknown command. Try /status."));
         }
 
-        AtomicBoolean lock = GENERATION_LOCKS.get(campaignId);
-        if (lock != null && !lock.compareAndSet(false, true)) {
-            return errorJson("Generation already in progress");
+        String commandToken = text.split("\\s+", 2)[0].strip();
+        String command = commandToken.startsWith("/") ? commandToken.substring(1) : commandToken;
+        command = command.toLowerCase();
+
+        // Delegate creation-phase commands to CreationEngine
+        if (journal.isCreationPhase(campaignId)) {
+            String result = creationEngine.handleSlashCommand(ctx(), command);
+            if (result != null) {
+                return result;
+            }
         }
 
-        try {
-            // Journal the player's input
-            journal.appendNarrative(campaignId, formatPlayerInput(text));
-
+        if ("status".equals(command)) {
             CharacterSheet character = journal.readCharacter(campaignId);
-            String journalContext = journal.getRecentJournal(campaignId, 30);
-            int exchangeCount = countExchanges(journalContext);
-
-            // Clear chat memory so the LLM only sees the current system+user message
-            // (journal context is already included in the user message template)
-            memoryProvider.clear(campaignId);
-
-            String vowInstruction = exchangeCount >= 3
-                    ? "IMPORTANT: The player has responded %d times. You MUST now suggest a background vow. Set suggestedVow to a short imperative phrase based on the story (e.g. \"Find my lost sister\"). Do NOT ask more questions."
-                            .formatted(exchangeCount)
-                    : "";
-
-            CreationResponse response = creationAssistant.guide(
-                    campaignId,
-                    character.name(),
-                    character.edge(), character.heart(), character.iron(),
-                    character.shadow(), character.wits(),
-                    journalContext,
-                    exchangeCount,
-                    text,
-                    vowInstruction);
-
-            // Journal the guide's response
-            String guideMessage = response.message() != null ? response.message() : "";
-            if (!guideMessage.isBlank()) {
-                journal.appendNarrative(campaignId, guideMessage);
-            }
-
+            String phase = journal.isCreationPhase(campaignId) ? "creation" : "active";
             return objectMapper.writeValueAsString(Map.of(
-                    "type", "creation_response",
-                    "message", guideMessage,
-                    "suggestedVow", response.suggestedVow()));
-        } finally {
-            if (lock != null) {
-                lock.set(false);
-            }
+                    "type", "slash_command_result",
+                    "command", "status",
+                    "phase", phase,
+                    "character", character));
         }
-    }
-
-    private String handleFinalizeCreation(JsonNode msg) throws Exception {
-        // Parse the finalized character data
-        JsonNode charNode = msg.path("character");
-        CharacterSheet character = new CharacterSheet(
-                journal.readCharacter(campaignId).name(),
-                charNode.path("edge").asInt(1),
-                charNode.path("heart").asInt(1),
-                charNode.path("iron").asInt(1),
-                charNode.path("shadow").asInt(1),
-                charNode.path("wits").asInt(1),
-                5, 5, 5, 2,
-                parseVows(charNode));
-
-        // Update the character sheet in the journal (backstory conversation is already journaled)
-        journal.updateCharacter(campaignId, character);
-
-        // Send character update and transition to active play
-        connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                "type", "character_update",
-                "character", character)));
 
         return objectMapper.writeValueAsString(Map.of(
-                "type", "creation_phase",
-                "phase", "active"));
+                "type", "slash_command_result",
+                "command", "unknown",
+                "message", "Unknown command. Try /status."));
     }
 
-    private List<Vow> parseVows(JsonNode charNode) {
-        List<Vow> vows = new ArrayList<>();
-        if (charNode.has("vows") && charNode.get("vows").isArray()) {
-            for (JsonNode vowNode : charNode.get("vows")) {
-                vows.add(new Vow(
-                        vowNode.path("description").asText(),
-                        Rank.valueOf(vowNode.path("rank").asText("DANGEROUS")),
-                        vowNode.path("progress").asInt(0)));
-            }
-        }
-        return vows;
+    @FunctionalInterface
+    private interface LockAction {
+        String call() throws Exception;
     }
 
-    // --- Gameplay flow ---
-
-    private String handleNarrative(JsonNode msg) throws Exception {
-        String text = msg.path("text").asText();
-        if (text.isBlank()) {
-            return errorJson("Empty narrative text");
-        }
-
+    private String withLock(LockAction action) throws Exception {
         AtomicBoolean lock = GENERATION_LOCKS.get(campaignId);
         if (lock != null && !lock.compareAndSet(false, true)) {
             return errorJson("Generation already in progress");
         }
-
         try {
-            journal.appendNarrative(campaignId, formatPlayerInput(text));
-
-            CharacterSheet character = journal.readCharacter(campaignId);
-            String charCtx = formatCharacterContext(character);
-            String journalCtx = journal.getRecentJournal(campaignId, 60);
-            String memoryCtx = storyMemory.relevantMemory(campaignId, text);
-
-            memoryProvider.clear(campaignId);
-            PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, memoryCtx, text);
-            String narrative = OracleService.stripOracleLines(
-                    JournalParser.sanitizeNarrative(response.narrative()));
-
-            journal.appendNarrative(campaignId, narrative);
-
-            return objectMapper.writeValueAsString(Map.of(
-                    "type", "narrative",
-                    "narrative", narrative,
-                    "narrativeHtml", prettify.markdownToHtml(narrative),
-                    "blocks", blocksForNarrative(narrative),
-                    "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
-                    "location", response.location() != null ? response.location() : ""));
+            return action.call();
         } finally {
             if (lock != null) {
                 lock.set(false);
             }
         }
-    }
-
-    private String handleInspireMe() throws Exception {
-        AtomicBoolean lock = GENERATION_LOCKS.get(campaignId);
-        if (lock != null && !lock.compareAndSet(false, true)) {
-            return errorJson("Generation already in progress");
-        }
-
-        try {
-            CharacterSheet character = journal.readCharacter(campaignId);
-            String charCtx = formatCharacterContext(character);
-            String journalCtx = journal.getRecentJournal(campaignId, 60);
-            // Use recent journal text as the query so memory retrieval finds relevant past context
-            String[] lines = journalCtx.split("\n");
-            String memoryQuery = String.join("\n",
-                    java.util.Arrays.copyOfRange(lines, Math.max(0, lines.length - 10), lines.length));
-            String memoryCtx = storyMemory.relevantMemory(campaignId, memoryQuery);
-
-            InspireResult result = oracleService.inspireMe(campaignId, charCtx, journalCtx, memoryCtx);
-
-            // Send oracle result to client if one was rolled server-side (non-tool-calling path)
-            if (result.oracleResult() != null) {
-                connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                        "type", "oracle_result",
-                        "result", result.oracleResult())));
-            }
-
-            PlayResponse response = result.response();
-            return objectMapper.writeValueAsString(Map.of(
-                    "type", "narrative",
-                    "narrative", result.narrative(),
-                    "narrativeHtml", prettify.markdownToHtml(result.narrative()),
-                    "blocks", blocksForNarrative(result.narrative()),
-                    "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
-                    "location", response.location() != null ? response.location() : ""));
-        } finally {
-            if (lock != null) {
-                lock.set(false);
-            }
-        }
-    }
-
-    private String handleMoveResult(JsonNode msg) throws Exception {
-        String categoryKey = msg.path("categoryKey").asText();
-        String moveKey = msg.path("moveKey").asText();
-        String stat = msg.path("stat").asText();
-        int actionDie = msg.path("actionDie").asInt();
-        int challenge1 = msg.path("challenge1").asInt();
-        int challenge2 = msg.path("challenge2").asInt();
-        int actionScore = msg.path("actionScore").asInt();
-        String outcomeStr = msg.path("outcome").asText();
-        Outcome outcome = Outcome.valueOf(outcomeStr);
-
-        // Journal the player's action description (if provided) before the roll
-        String playerAction = msg.path("playerAction").asText("").trim();
-        if (!playerAction.isEmpty()) {
-            journal.appendNarrative(campaignId, formatPlayerInput(playerAction));
-        }
-
-        // Journal the roll
-        String moveName = moveKey.replace("_", " ");
-        moveName = moveName.substring(0, 1).toUpperCase() + moveName.substring(1);
-        journal.appendMechanical(campaignId,
-                "**%s** (+%s): Action %d, Challenge %d|%d → **%s**".formatted(
-                        moveName, stat, actionScore, challenge1, challenge2, outcome.display()));
-
-        // Look up the rules text for this outcome
-        String moveOutcomeText = mechanics.getMoveOutcomeText(categoryKey, moveKey, outcome);
-
-        // If the outcome text mentions "Pay the Price", roll that oracle automatically
-        if (moveOutcomeText.contains("Pay the Price")) {
-            OracleResult ptpOracle = oracleService.rollOracle("moves", "pay_the_price");
-            journal.appendMechanical(campaignId, ptpOracle.toJournalEntry());
-
-            // Send the Pay the Price result to the client
-            String ptpJson = objectMapper.writeValueAsString(Map.of(
-                    "type", "oracle_result",
-                    "result", ptpOracle));
-            connection.sendTextAndAwait(ptpJson);
-
-            // Append to moveOutcomeText so the LLM narrates with the specific price
-            moveOutcomeText += "\n\n**Pay the Price result**: " + ptpOracle.resultText();
-        }
-
-        // Send the rules text immediately
-        String moveOutcomeJson = objectMapper.writeValueAsString(Map.of(
-                "type", "move_outcome",
-                "moveName", moveName,
-                "moveOutcomeText", StringUtils.mdToHtml(moveOutcomeText).getValue()));
-        connection.sendTextAndAwait(moveOutcomeJson);
-
-        // Now get LLM narration
-        AtomicBoolean lock = GENERATION_LOCKS.get(campaignId);
-        if (lock != null && !lock.compareAndSet(false, true)) {
-            return errorJson("Generation already in progress");
-        }
-
-        try {
-            String journalCtx = journal.getRecentJournal(campaignId, 20);
-
-            memoryProvider.clear(campaignId);
-            PlayResponse response = assistant.narrateMoveResult(
-                    campaignId, moveName, outcome.display(),
-                    actionScore, challenge1, challenge2,
-                    moveOutcomeText, journalCtx, "");
-            String narrative = OracleService.stripOracleLines(
-                    JournalParser.sanitizeNarrative(response.narrative()));
-
-            journal.appendNarrative(campaignId, narrative);
-
-            return objectMapper.writeValueAsString(Map.of(
-                    "type", "narrative",
-                    "narrative", narrative,
-                    "narrativeHtml", prettify.markdownToHtml(narrative),
-                    "blocks", blocksForNarrative(narrative),
-                    "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
-                    "location", response.location() != null ? response.location() : ""));
-        } finally {
-            if (lock != null) {
-                lock.set(false);
-            }
-        }
-    }
-
-    private String handleOracle(JsonNode msg) throws Exception {
-        String collectionKey = msg.path("collectionKey").asText();
-        String tableKey = msg.path("tableKey").asText();
-        OracleResult result = oracleService.rollOracle(collectionKey, tableKey);
-        journal.appendMechanical(campaignId, result.toJournalEntry());
-        return objectMapper.writeValueAsString(Map.of(
-                "type", "oracle_result",
-                "result", result));
-    }
-
-    private String handleOracleManual(JsonNode msg) throws Exception {
-        String collectionKey = msg.path("collectionKey").asText();
-        String tableKey = msg.path("tableKey").asText();
-        int roll = msg.path("roll").asInt();
-        OracleResult result = oracleService.rollOracleManual(collectionKey, tableKey, roll);
-        journal.appendMechanical(campaignId, result.toJournalEntry());
-        return objectMapper.writeValueAsString(Map.of(
-                "type", "oracle_result",
-                "result", result));
-    }
-
-    private String handleProgressMark(JsonNode msg) throws Exception {
-        int vowIndex = msg.path("vowIndex").asInt();
-        CharacterSheet character = journal.readCharacter(campaignId);
-
-        if (vowIndex < 0 || vowIndex >= character.vows().size()) {
-            return errorJson("Invalid vow index: " + vowIndex);
-        }
-
-        var vow = character.vows().get(vowIndex);
-        int newProgress = mechanics.markProgress(vow.progress(), vow.rank());
-        var updatedVow = new Vow(vow.description(), vow.rank(), newProgress);
-
-        var updatedVows = new ArrayList<>(character.vows());
-        updatedVows.set(vowIndex, updatedVow);
-        CharacterSheet updated = new CharacterSheet(
-                character.name(), character.edge(), character.heart(), character.iron(),
-                character.shadow(), character.wits(), character.health(), character.spirit(),
-                character.supply(), character.momentum(), updatedVows);
-
-        journal.updateCharacter(campaignId, updated);
-        return objectMapper.writeValueAsString(Map.of(
-                "type", "character_update",
-                "character", updated));
-    }
-
-    private String handleCharacterUpdate(JsonNode msg) throws Exception {
-        CharacterSheet character = objectMapper.treeToValue(msg.path("character"), CharacterSheet.class);
-        journal.updateCharacter(campaignId, character);
-        return objectMapper.writeValueAsString(Map.of(
-                "type", "character_update",
-                "character", character));
-    }
-
-    private String handleBacktrack(JsonNode msg) throws Exception {
-        int blockIndex = msg.path("blockIndex").asInt(-1);
-        if (blockIndex < 0) {
-            return errorJson("Invalid block index");
-        }
-        journal.truncateJournal(campaignId, blockIndex);
-        memoryProvider.clear(campaignId);
-        return objectMapper.writeValueAsString(Map.of("type", "backtrack_done"));
-    }
-
-    private String extractLastPlayerInput(String journalContent) {
-        return JournalParser.extractLastPlayerInput(journalContent);
-    }
-
-    private boolean needsNarration(String journalContent) {
-        return JournalParser.needsNarration(journalContent);
-    }
-
-    private boolean endsWithPlayerEntry(String journalContent) {
-        return JournalParser.endsWithPlayerEntry(journalContent);
-    }
-
-    private int countExchanges(String journalContext) {
-        return JournalParser.countExchanges(journalContext);
-    }
-
-    private List<JournalParser.JournalBlock> blocksForNarrative(String narrative) {
-        if (narrative == null || narrative.isBlank()) {
-            return List.of();
-        }
-        return JournalParser.parseToBlocks(narrative, prettify);
-    }
-
-    private String formatCharacterContext(CharacterSheet c) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("**%s** — Edge %d, Heart %d, Iron %d, Shadow %d, Wits %d\n".formatted(
-                c.name(), c.edge(), c.heart(), c.iron(), c.shadow(), c.wits()));
-        sb.append("Health %d, Spirit %d, Supply %d, Momentum %d\n".formatted(
-                c.health(), c.spirit(), c.supply(), c.momentum()));
-        if (!c.vows().isEmpty()) {
-            sb.append("Vows:\n");
-            for (var vow : c.vows()) {
-                sb.append("- %s (%s, %d/10)\n".formatted(
-                        vow.description(), vow.rank().name().toLowerCase(), vow.progress()));
-            }
-        }
-        return sb.toString();
-    }
-
-    private String formatPlayerInput(String text) {
-        return "<player>\n" + text.strip() + "\n</player>";
     }
 
     private String errorJson(String message) {

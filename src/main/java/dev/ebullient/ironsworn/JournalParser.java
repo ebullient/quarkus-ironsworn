@@ -24,6 +24,11 @@ public class JournalParser {
     private JournalParser() {
     }
 
+    /** Wrap player input text in journal player tags. */
+    public static String formatPlayerInput(String text) {
+        return "<player>\n" + text.strip() + "\n</player>";
+    }
+
     /**
      * Split journal content into embeddable exchanges.
      * Each exchange starts with a player entry ({@code <player>}) or

@@ -1,1 +1,4 @@
-Inspire me to create a character for the Ironlands.
+Inspire the player to create a character for the Ironlands.
+
+{name}
+{statsSummary}
