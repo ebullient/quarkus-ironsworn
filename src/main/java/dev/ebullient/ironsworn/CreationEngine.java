@@ -89,6 +89,7 @@ public class CreationEngine {
         }
 
         String sessionId = "inspire-" + ctx.campaignId();
+        memoryProvider.clear(sessionId);
         CreationResponse response = creationAssistant.inspire(sessionId, character.name(), statsSummary);
         return objectMapper.writeValueAsString(Map.of(
                 "type", "inspire-create",
@@ -222,7 +223,7 @@ public class CreationEngine {
             for (JsonNode vowNode : charNode.get("vows")) {
                 vows.add(new Vow(
                         vowNode.path("description").asText(),
-                        Rank.valueOf(vowNode.path("rank").asText("DANGEROUS")),
+                        Rank.valueOf(vowNode.path("rank").asText("DANGEROUS").toUpperCase()),
                         vowNode.path("progress").asInt(0)));
             }
         }

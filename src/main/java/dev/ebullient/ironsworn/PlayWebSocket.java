@@ -1,8 +1,10 @@
 package dev.ebullient.ironsworn;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import jakarta.inject.Inject;
 
@@ -13,6 +15,7 @@ import dev.ebullient.ironsworn.chat.PlayMemoryProvider;
 import dev.ebullient.ironsworn.memory.StoryMemoryIndexer;
 import dev.ebullient.ironsworn.model.CharacterSheet;
 import io.quarkus.logging.Log;
+import io.quarkus.websockets.next.CloseReason;
 import io.quarkus.websockets.next.OnClose;
 import io.quarkus.websockets.next.OnError;
 import io.quarkus.websockets.next.OnOpen;
@@ -25,7 +28,7 @@ import io.smallrye.common.annotation.RunOnVirtualThread;
 @WebSocket(path = "/ws/play/{campaignId}")
 public class PlayWebSocket {
 
-    private static final Map<String, AtomicBoolean> GENERATION_LOCKS = new ConcurrentHashMap<>();
+    private static final Map<String, ReentrantLock> GENERATION_LOCKS = new ConcurrentHashMap<>();
 
     @Inject
     WebSocketConnection connection;
@@ -54,22 +57,25 @@ public class PlayWebSocket {
     @RunOnVirtualThread
     public String onOpen(@PathParam String campaignId) {
         this.campaignId = campaignId;
-        GENERATION_LOCKS.computeIfAbsent(campaignId, k -> new AtomicBoolean(false));
         Log.infof("Play WebSocket opened: %s (connection: %s)", campaignId, connection.id());
 
-        // Clear stale LLM chat history so reconnects start fresh.
-        memoryProvider.clear(campaignId);
-
-        // Warm long-term story memory in the background for this campaign.
-        storyMemoryIndexer.warmIndex(campaignId);
-
         try {
-            return journal.isCreationPhase(campaignId)
-                    ? creationEngine.handleOpen(ctx())
-                    : gamePlayEngine.handleOpen(ctx());
+            return withLockWait(30_000, "Another action is in progress\u2026 waiting to resume.", () -> {
+                // Clear stale LLM chat history so reconnects start fresh.
+                memoryProvider.clear(campaignId);
+
+                // Warm long-term story memory in the background for this campaign.
+                storyMemoryIndexer.warmIndex(campaignId);
+
+                EngineContext ctx = ctx();
+                return journal.isCreationPhase(campaignId)
+                        ? creationEngine.handleOpen(ctx)
+                        : gamePlayEngine.handleOpen(ctx);
+            });
         } catch (Exception e) {
             Log.errorf(e, "Failed to open campaign: %s", campaignId);
-            return errorJson("Campaign not found: " + campaignId);
+            String message = Objects.toString(e.getMessage(), e.getClass().getSimpleName());
+            return errorJson("Failed to open campaign %s: %s".formatted(campaignId, message));
         }
     }
 
@@ -79,9 +85,13 @@ public class PlayWebSocket {
     }
 
     @OnError
-    public String onError(Throwable error) {
+    public void onError(Throwable error) {
         Log.errorf(error, "Play WebSocket error: %s", campaignId);
-        return errorJson(error.getMessage());
+        try {
+            connection.closeAndAwait(CloseReason.INTERNAL_SERVER_ERROR);
+        } catch (Exception e) {
+            Log.debug("Failed to close WebSocket after error", e);
+        }
     }
 
     @OnTextMessage
@@ -90,21 +100,22 @@ public class PlayWebSocket {
         try {
             JsonNode msg = objectMapper.readTree(rawMessage);
             String type = msg.path("type").asText();
+            EngineContext ctx = ctx();
 
             return switch (type) {
                 // Creation flow (delegated to CreationEngine)
-                case "creation_chat" -> withLock(() -> creationEngine.handleChat(ctx(), msg));
-                case "finalize_creation" -> creationEngine.handleFinalize(ctx(), msg);
+                case "creation_chat" -> withLock(() -> creationEngine.handleChat(ctx, msg));
+                case "finalize_creation" -> withLock(() -> creationEngine.handleFinalize(ctx, msg));
                 // Gameplay flow (delegated to GamePlayEngine)
-                case "narrative" -> withLock(() -> gamePlayEngine.handleNarrative(ctx(), msg));
-                case "move_result" -> withLock(() -> gamePlayEngine.handleMoveResult(ctx(), msg));
-                case "inspire" -> withLock(() -> gamePlayEngine.handleInspireMe(ctx()));
-                case "oracle" -> gamePlayEngine.handleOracle(ctx(), msg);
-                case "oracle_manual" -> gamePlayEngine.handleOracleManual(ctx(), msg);
-                case "progress_mark" -> gamePlayEngine.handleProgressMark(ctx(), msg);
-                case "character_update" -> gamePlayEngine.handleCharacterUpdate(ctx(), msg);
-                case "backtrack" -> gamePlayEngine.handleBacktrack(ctx(), msg);
-                case "slash_command" -> handleSlashCommand(msg);
+                case "narrative" -> withLock(() -> gamePlayEngine.handleNarrative(ctx, msg));
+                case "move_result" -> withLock(() -> gamePlayEngine.handleMoveResult(ctx, msg));
+                case "inspire" -> withLock(() -> gamePlayEngine.handleInspireMe(ctx));
+                case "oracle" -> gamePlayEngine.handleOracle(ctx, msg);
+                case "oracle_manual" -> gamePlayEngine.handleOracleManual(ctx, msg);
+                case "progress_mark" -> gamePlayEngine.handleProgressMark(ctx, msg);
+                case "character_update" -> gamePlayEngine.handleCharacterUpdate(ctx, msg);
+                case "backtrack" -> withLock(() -> gamePlayEngine.handleBacktrack(ctx, msg));
+                case "slash_command" -> handleSlashCommand(ctx, msg);
                 default -> errorJson("Unknown message type: " + type);
             };
         } catch (Exception e) {
@@ -139,7 +150,7 @@ public class PlayWebSocket {
         return new EngineContext(campaignId, emitter);
     }
 
-    private String handleSlashCommand(JsonNode msg) throws Exception {
+    private String handleSlashCommand(EngineContext ctx, JsonNode msg) throws Exception {
         String text = msg.path("text").asText("").trim();
         if (text.isBlank() || !text.startsWith("/")) {
             return objectMapper.writeValueAsString(Map.of(
@@ -149,16 +160,8 @@ public class PlayWebSocket {
         }
 
         String commandToken = text.split("\\s+", 2)[0].strip();
-        String command = commandToken.startsWith("/") ? commandToken.substring(1) : commandToken;
-        command = command.toLowerCase();
-
-        // Delegate creation-phase commands to CreationEngine
-        if (journal.isCreationPhase(campaignId)) {
-            String result = creationEngine.handleSlashCommand(ctx(), command);
-            if (result != null) {
-                return result;
-            }
-        }
+        String command = (commandToken.startsWith("/") ? commandToken.substring(1) : commandToken)
+                .toLowerCase();
 
         if ("status".equals(command)) {
             CharacterSheet character = journal.readCharacter(campaignId);
@@ -168,6 +171,18 @@ public class PlayWebSocket {
                     "command", "status",
                     "phase", phase,
                     "character", character));
+        }
+
+        return withLock(() -> handleMutableSlashCommand(ctx, command));
+    }
+
+    private String handleMutableSlashCommand(EngineContext ctx, String command) throws Exception {
+        // Delegate creation-phase commands to CreationEngine
+        if (journal.isCreationPhase(campaignId)) {
+            String result = creationEngine.handleSlashCommand(ctx, command);
+            if (result != null) {
+                return result;
+            }
         }
 
         return objectMapper.writeValueAsString(Map.of(
@@ -182,22 +197,55 @@ public class PlayWebSocket {
     }
 
     private String withLock(LockAction action) throws Exception {
-        AtomicBoolean lock = GENERATION_LOCKS.get(campaignId);
-        if (lock != null && !lock.compareAndSet(false, true)) {
+        if (campaignId == null || campaignId.isBlank()) {
+            return errorJson("Missing campaign id");
+        }
+        ReentrantLock lock = GENERATION_LOCKS.computeIfAbsent(campaignId, k -> new ReentrantLock());
+        if (!lock.tryLock()) {
             return errorJson("Generation already in progress");
         }
         try {
             return action.call();
         } finally {
-            if (lock != null) {
-                lock.set(false);
+            lock.unlock();
+        }
+    }
+
+    private String withLockWait(long timeoutMillis, String waitingDelta, LockAction action) throws Exception {
+        if (campaignId == null || campaignId.isBlank()) {
+            return errorJson("Missing campaign id");
+        }
+        ReentrantLock lock = GENERATION_LOCKS.computeIfAbsent(campaignId, k -> new ReentrantLock());
+        if (!lock.tryLock()) {
+            if (waitingDelta != null && !waitingDelta.isBlank()) {
+                try {
+                    ctx().emitter().delta(waitingDelta);
+                } catch (Exception e) {
+                    Log.debug("Failed to emit waiting delta while acquiring generation lock", e);
+                }
             }
+            boolean acquired;
+            try {
+                acquired = lock.tryLock(timeoutMillis, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return errorJson("Interrupted while waiting for generation lock");
+            }
+            if (!acquired) {
+                return errorJson("Timed out waiting for generation lock");
+            }
+        }
+        try {
+            return action.call();
+        } finally {
+            lock.unlock();
         }
     }
 
     private String errorJson(String message) {
         try {
-            return objectMapper.writeValueAsString(Map.of("type", "error", "message", message));
+            String safeMessage = Objects.toString(message, "Unknown error");
+            return objectMapper.writeValueAsString(Map.of("type", "error", "message", safeMessage));
         } catch (Exception e) {
             return "{\"type\":\"error\",\"message\":\"Internal error\"}";
         }

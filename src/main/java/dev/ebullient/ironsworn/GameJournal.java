@@ -261,14 +261,17 @@ public class GameJournal {
     }
 
     private void appendToJournal(String campaignId, String content) {
-        Path path = journalPath(campaignId);
-        try {
-            Files.writeString(path, content, StandardCharsets.UTF_8, StandardOpenOption.APPEND);
-            if (storyMemoryIndexer != null) {
-                storyMemoryIndexer.requestIndex(campaignId);
+        Object lock = CAMPAIGN_LOCKS.computeIfAbsent(campaignId, k -> new Object());
+        synchronized (lock) {
+            Path path = journalPath(campaignId);
+            try {
+                Files.writeString(path, content, StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+                if (storyMemoryIndexer != null) {
+                    storyMemoryIndexer.requestIndex(campaignId);
+                }
+            } catch (IOException e) {
+                log.errorf(e, "Failed to append to journal: %s", campaignId);
             }
-        } catch (IOException e) {
-            log.errorf(e, "Failed to append to journal: %s", campaignId);
         }
     }
 

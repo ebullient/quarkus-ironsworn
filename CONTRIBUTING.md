@@ -75,4 +75,10 @@ The `Datasworn/` package (root-level, not under `dev.ebullient`) contains **gene
 
 ### Journal Format
 
-Campaign data is stored as markdown files. Character stats, meters, and vows are in a structured header section parsed via regex. The `## Journal` section contains interleaved narrative text and blockquoted (`>`) mechanical results. Player inputs are formatted as `*Player: text*`.
+Campaign data is stored as markdown files. Character stats, meters, and vows are in a structured header section parsed via regex. The `## Journal` section contains interleaved narrative text and blockquoted (`>`) mechanical results. Player inputs are wrapped in explicit `<player>...</player>` blocks:
+
+```md
+<player>
+What do I see beyond the ridge?
+</player>
+```

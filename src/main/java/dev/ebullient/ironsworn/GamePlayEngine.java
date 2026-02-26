@@ -17,6 +17,7 @@ import dev.ebullient.ironsworn.chat.PlayAssistant;
 import dev.ebullient.ironsworn.chat.PlayMemoryProvider;
 import dev.ebullient.ironsworn.chat.PlayResponse;
 import dev.ebullient.ironsworn.memory.StoryMemoryService;
+import dev.ebullient.ironsworn.model.ActionRollResult;
 import dev.ebullient.ironsworn.model.CharacterSheet;
 import dev.ebullient.ironsworn.model.OracleResult;
 import dev.ebullient.ironsworn.model.Outcome;
@@ -112,6 +113,8 @@ public class GamePlayEngine {
         String categoryKey = msg.path("categoryKey").asText();
         String moveKey = msg.path("moveKey").asText();
         String stat = msg.path("stat").asText();
+        int statValue = msg.path("statValue").asInt();
+        int adds = msg.path("adds").asInt(0);
         int actionDie = msg.path("actionDie").asInt();
         int challenge1 = msg.path("challenge1").asInt();
         int challenge2 = msg.path("challenge2").asInt();
@@ -128,9 +131,9 @@ public class GamePlayEngine {
         // Journal the roll
         String moveName = moveKey.replace("_", " ");
         moveName = moveName.substring(0, 1).toUpperCase() + moveName.substring(1);
-        journal.appendMechanical(ctx.campaignId(),
-                "**%s** (+%s): Action %d, Challenge %d|%d → **%s**".formatted(
-                        moveName, stat, actionScore, challenge1, challenge2, outcome.display()));
+        ActionRollResult roll = new ActionRollResult(
+                moveName, stat, statValue, adds, actionDie, actionScore, challenge1, challenge2, outcome);
+        journal.appendMechanical(ctx.campaignId(), roll.toJournalEntry());
 
         // Look up the rules text for this outcome
         String moveOutcomeText = mechanics.getMoveOutcomeText(categoryKey, moveKey, outcome);
