@@ -45,3 +45,4 @@ nb-configuration.xml
 .certs/
 .quarkus/
 .claude/settings.local.json
+dev-ironsworn
