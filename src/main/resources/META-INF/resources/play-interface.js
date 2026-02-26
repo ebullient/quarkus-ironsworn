@@ -181,8 +181,12 @@ class PlayInterface {
     injectStatsWidget(character) {
         // Use persisted stats if available, otherwise defaults
         const c = character || { edge: 1, heart: 1, iron: 2, shadow: 2, wits: 3 };
-        const isDefault = (c.edge === 1 && c.heart === 1 && c.iron === 1 && c.shadow === 1 && c.wits === 1);
-        const alreadyConfirmed = !isDefault && (c.edge + c.heart + c.iron + c.shadow + c.wits === 9);
+        const hasPersistedStats = !!character;
+        const isUninitialized = hasPersistedStats
+                && (c.edge === 1 && c.heart === 1 && c.iron === 1 && c.shadow === 1 && c.wits === 1);
+        const alreadyConfirmed = hasPersistedStats
+                && !isUninitialized
+                && (c.edge + c.heart + c.iron + c.shadow + c.wits === 9);
 
         const widget = document.createElement('div');
         widget.className = 'creation-widget stats-widget';
