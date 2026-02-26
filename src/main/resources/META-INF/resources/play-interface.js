@@ -68,8 +68,8 @@ class PlayInterface {
             case 'creation_phase':
                 this.handleCreationPhase(msg);
                 break;
-            case 'inspire':
-                this.handleInspire(msg);
+            case 'inspire-create':
+                this.handleInspireCreation(msg);
                 break;
             case 'creation_response':
                 this.handleCreationResponse(msg);
@@ -166,7 +166,7 @@ class PlayInterface {
         }
     }
 
-    handleInspire(msg) {
+    handleInspireCreation(msg) {
         // Inject inspiration text as a chat widget
         const widget = document.createElement('div');
         widget.className = 'message creation-widget inspiration-text';

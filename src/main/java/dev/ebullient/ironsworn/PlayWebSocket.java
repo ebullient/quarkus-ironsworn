@@ -108,7 +108,7 @@ public class PlayWebSocket {
         String existingJournal = journal.getRecentJournal(campaignId, 100);
         if (existingJournal.isBlank()) {
             // Fresh creation — generate and send inspiration
-            return handleInspire();
+            return handleInspireCreation();
         }
 
         // Replay existing conversation to the client as pre-rendered blocks
@@ -256,7 +256,7 @@ public class PlayWebSocket {
 
     // --- Creation flow ---
 
-    private String handleInspire() throws Exception {
+    private String handleInspireCreation() throws Exception {
         AtomicBoolean lock = GENERATION_LOCKS.get(campaignId);
         if (lock != null && !lock.compareAndSet(false, true)) {
             return errorJson("Generation already in progress");
@@ -266,7 +266,7 @@ public class PlayWebSocket {
             String sessionId = "inspire-" + campaignId;
             CreationResponse response = creationAssistant.inspire(sessionId);
             return objectMapper.writeValueAsString(Map.of(
-                    "type", "inspire",
+                    "type", "inspire-create",
                     "text", response.message() != null ? response.message() : ""));
         } finally {
             if (lock != null) {
