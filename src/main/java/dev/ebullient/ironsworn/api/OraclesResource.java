@@ -38,7 +38,6 @@ public class OraclesResource {
             @QueryParam("table") String table) {
         return oracleTool.rollOracle(
                 collection != null ? collection : "action_and_theme",
-                table != null ? table : "action",
-                null);
+                table != null ? table : "action");
     }
 }

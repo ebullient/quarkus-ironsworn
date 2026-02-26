@@ -6,7 +6,6 @@ import jakarta.inject.Inject;
 import dev.ebullient.ironsworn.IronswornMechanics;
 import dev.ebullient.ironsworn.model.OracleResult;
 import dev.langchain4j.agent.tool.Tool;
-import dev.langchain4j.agent.tool.ToolMemoryId;
 import io.quarkus.logging.Log;
 
 /**
@@ -38,8 +37,8 @@ public class OracleTool {
             Returns a formatted journal entry you MUST include verbatim in your narrative.
             This tool does not write to the journal directly.
             """)
-    public String rollOracle(String collectionKey, String tableKey, @ToolMemoryId String campaignId) {
-        Log.debugf("%s: Ask the oracle - %s/%s", campaignId, collectionKey, tableKey);
+    public String rollOracle(String collectionKey, String tableKey) {
+        Log.debugf("%s: Ask the oracle - %s/%s", collectionKey, tableKey);
 
         OracleResult result = mechanics.rollOracle(collectionKey, tableKey);
         return "> " + result.toJournalEntry();
