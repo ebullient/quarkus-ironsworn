@@ -252,10 +252,9 @@ public class CreationEngine {
 
     private String creationResponseJson(String message, String suggestedVow) throws Exception {
         var map = Map.of(
-            "type", "creation_response",
-            "message", message,
-            "suggestedVow", suggestedVow != null ? suggestedVow : ""
-        );
+                "type", "creation_response",
+                "message", message,
+                "suggestedVow", suggestedVow != null ? suggestedVow : "");
         return objectMapper.writeValueAsString(map);
     }
 
