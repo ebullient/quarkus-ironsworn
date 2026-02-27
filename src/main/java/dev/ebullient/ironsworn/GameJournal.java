@@ -341,6 +341,27 @@ public class GameJournal {
         }
     }
 
+    public boolean deleteCampaign(String campaignId) {
+        Object lock = CAMPAIGN_LOCKS.computeIfAbsent(campaignId, k -> new Object());
+        synchronized (lock) {
+            Path path = journalPath(campaignId);
+            if (!Files.exists(path)) {
+                return false;
+            }
+            try {
+                Files.delete(path);
+                log.infof("Deleted campaign journal: %s", path);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to delete campaign file: " + path, e);
+            }
+            if (storyMemoryIndexer != null) {
+                storyMemoryIndexer.deleteCampaignIndex(campaignId);
+            }
+        }
+        CAMPAIGN_LOCKS.remove(campaignId);
+        return true;
+    }
+
     public Campaign getCampaign(String campaignId) {
         Path path = journalPath(campaignId);
         if (!Files.exists(path)) {

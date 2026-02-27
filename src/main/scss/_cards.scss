@@ -18,6 +18,32 @@
   }
 }
 
+.campaign-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+
+  .campaign-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    flex: 1;
+
+    &:hover {
+      color: var(--color-text-accent, inherit);
+    }
+  }
+
+  .campaign-play {
+    width: 100%;
+  }
+
+  .delete-campaign {
+    background-color: var(--color-bg-overlay);
+    color: var(--color-text-secondary);
+  }
+}
+
 .reference-cards .card {
   display: flex;
   flex-direction: column;

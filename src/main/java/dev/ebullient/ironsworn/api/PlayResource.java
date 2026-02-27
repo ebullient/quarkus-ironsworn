@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
@@ -54,6 +55,18 @@ public class PlayResource {
     @Produces(MediaType.APPLICATION_JSON)
     public CharacterSheet getCharacter(@RestPath String campaignId) {
         return journal.readCharacter(campaignId);
+    }
+
+    @DELETE
+    @Path("/campaigns/{campaignId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response deleteCampaign(@RestPath String campaignId) {
+        boolean deleted = journal.deleteCampaign(campaignId);
+        if (!deleted) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity("{\"error\":\"Campaign not found\"}").build();
+        }
+        return Response.noContent().build();
     }
 
     @PATCH

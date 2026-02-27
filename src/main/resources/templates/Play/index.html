@@ -21,46 +21,23 @@
             </div>
 
             {#for campaign in campaigns}
-            <a href="/play/{campaign.id}" class="card campaign-card">
-                <h3>{campaign.name}</h3>
-                <span class="campaign-id">{campaign.id}</span>
-            </a>
+            <div class="card campaign-card">
+                <a href="/play/{campaign.id}" class="campaign-link">
+                    <h3>{campaign.name}</h3>
+                    <span class="campaign-id">{campaign.id}</span>
+                </a>
+                <a href="/play/{campaign.id}" class="btn play-campaign">Play</a>
+                <button class="delete-campaign"
+                        data-id="{campaign.id}"
+                        data-name="{campaign.name}"
+                        aria-label="Delete {campaign.name}">Delete</button>
+            </div>
             {/for}
         </div>
     </div>
     {/content}
 
     {#footer-scripts}
-    <script>
-        document.getElementById('new-campaign-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('char-name').value.trim();
-            if (!name) return;
-
-            const btn = e.target.querySelector('button');
-            btn.disabled = true;
-            btn.textContent = 'Creating...';
-
-            try {
-                const resp = await fetch('/api/play/campaigns', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name })
-                });
-                if (resp.ok) {
-                    const campaign = await resp.json();
-                    window.location.href = '/play/' + campaign.id;
-                } else {
-                    alert('Failed to create campaign: ' + resp.statusText);
-                    btn.disabled = false;
-                    btn.textContent = 'Begin';
-                }
-            } catch (err) {
-                alert('Error: ' + err.message);
-                btn.disabled = false;
-                btn.textContent = 'Begin';
-            }
-        });
-    </script>
+    <script src="/campaigns.js"></script>
     {/footer-scripts}
 {/include}

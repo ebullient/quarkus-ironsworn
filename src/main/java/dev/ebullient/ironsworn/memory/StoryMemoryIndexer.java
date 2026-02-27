@@ -88,6 +88,22 @@ public class StoryMemoryIndexer {
         scheduleIndex(campaignId, 0);
     }
 
+    public void deleteCampaignIndex(String campaignId) {
+        if (campaignId == null || campaignId.isBlank()) {
+            return;
+        }
+        // Cancel any pending index task
+        ScheduledFuture<?> existing = pending.remove(campaignId);
+        if (existing != null) {
+            existing.cancel(false);
+        }
+        Object lock = campaignLocks.computeIfAbsent(campaignId, k -> new Object());
+        synchronized (lock) {
+            clearCampaignIndex(campaignId, indexStatePath(campaignId));
+        }
+        campaignLocks.remove(campaignId);
+    }
+
     public void requestIndex(String campaignId) {
         scheduleIndex(campaignId, debounceMillis);
     }
