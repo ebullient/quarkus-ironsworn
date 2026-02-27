@@ -2,6 +2,7 @@ package dev.ebullient.ironsworn;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import dev.ebullient.ironsworn.chat.MarkdownAugmenter;
 
@@ -259,6 +260,24 @@ public class JournalParser {
      */
     public static boolean isPlayerEntryEnd(String trimmedLine) {
         return PLAYER_CLOSE.equals(trimmedLine);
+    }
+
+    /**
+     * Strip mechanical entries and player markup tags, returning only narrative content.
+     */
+    public static String stripNonNarrative(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        return text.lines()
+                .filter(line -> {
+                    String trimmed = line.trim();
+                    return !isMechanicalEntry(trimmed)
+                            && !isPlayerEntry(trimmed)
+                            && !isPlayerEntryEnd(trimmed);
+                })
+                .collect(Collectors.joining("\n"))
+                .trim();
     }
 
     /**

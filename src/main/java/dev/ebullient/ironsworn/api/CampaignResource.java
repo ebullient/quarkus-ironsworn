@@ -11,6 +11,7 @@ import jakarta.ws.rs.core.MediaType;
 import org.jboss.resteasy.reactive.RestPath;
 
 import dev.ebullient.ironsworn.GameJournal;
+import dev.ebullient.ironsworn.JournalParser;
 import dev.ebullient.ironsworn.chat.CampaignAssistant;
 import dev.ebullient.ironsworn.chat.CampaignResponse;
 import dev.ebullient.ironsworn.chat.MarkdownAugmenter;
@@ -40,7 +41,7 @@ public class CampaignResource {
     public String ask(@RestPath String campaignId, String question) {
         CharacterSheet character = journal.readCharacter(campaignId);
         String charCtx = formatCharacterContext(character);
-        String journalCtx = journal.getRecentJournal(campaignId, 20);
+        String journalCtx = JournalParser.stripNonNarrative(journal.getRecentJournal(campaignId, 20));
         String memoryCtx = storyMemory.relevantMemory(campaignId, question);
 
         CampaignResponse response = assistant.answer(campaignId, charCtx, journalCtx, memoryCtx, question);

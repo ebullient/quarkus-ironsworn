@@ -192,7 +192,7 @@ public class StoryMemoryIndexer {
                 JournalExchange exchange = exchanges.get(i);
                 // Strip mechanical lines (oracle rolls, move results) — only
                 // embed the narrative content for better semantic matching.
-                String narrative = stripNonNarrative(exchange.content());
+                String narrative = JournalParser.stripNonNarrative(exchange.content());
                 if (narrative.isBlank()) {
                     continue;
                 }
@@ -324,19 +324,6 @@ public class StoryMemoryIndexer {
         return new Metadata()
                 .put("campaignId", campaignId)
                 .put("exchangeIndex", exchangeIndex);
-    }
-
-    /** Return only narrative content, stripping mechanical entries and player markup. */
-    private static String stripNonNarrative(String text) {
-        return text.lines()
-                .filter(line -> {
-                    String trimmed = line.trim();
-                    return !JournalParser.isMechanicalEntry(trimmed)
-                            && !JournalParser.isPlayerEntry(trimmed)
-                            && !JournalParser.isPlayerEntryEnd(trimmed);
-                })
-                .collect(java.util.stream.Collectors.joining("\n"))
-                .trim();
     }
 
     private static String sha256(String text) {
