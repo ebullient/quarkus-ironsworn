@@ -1,6 +1,8 @@
 // Shared message component for chat interfaces
 
 .message {
+  position: relative;
+
   padding: var(--spacing-md);
   border-radius: var(--border-radius-md);
   max-width: 80%;
@@ -19,6 +21,7 @@
   &.assistant + .message.assistant,
   &.user + .message.user {
     margin-top: calc(-1 * var(--spacing-md));
+    padding-top: 0;
     border-top-left-radius: 0;
     border-top-right-radius: 0;
   }
@@ -26,12 +29,14 @@
   // Round bottom corners only on the last in a consecutive run
   &.assistant:has(+ .message.assistant),
   &.user:has(+ .message.user) {
+    padding-bottom: 0;
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
   }
 
   // Assistant/AI messages
   &.assistant {
+
     //background: var(--color-bg-assistant);
     align-self: flex-start;
     //border-left: 4px solid var(--color-border-assistant);
@@ -72,6 +77,86 @@
       code {
         padding: 0;
         background: none;
+      }
+    }
+  }
+
+  // Inline edit button — visible on hover
+
+  .edit-btn {
+    position: absolute;
+    top: var(--spacing-xs);
+    right: var(--spacing-xs);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--color-bg-base);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    padding: 2px 6px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+
+    &:hover {
+      color: var(--color-text-primary);
+      border-color: var(--color-text-accent);
+    }
+  }
+
+  &:hover .edit-btn {
+    opacity: 1;
+  }
+
+  // Editing state
+  &.editing {
+    max-width: 100%;
+    align-self: stretch;
+    .edit-textarea {
+      width: 100%;
+      min-height: 4em;
+      background: var(--color-bg-base);
+      color: var(--color-text-primary);
+      border: 1px solid var(--color-text-accent);
+      border-radius: var(--border-radius-sm);
+      padding: var(--spacing-sm);
+      font-family: var(--font-family-mono);
+      font-size: var(--font-size-sm);
+      line-height: 1.5;
+      resize: vertical;
+    }
+
+    .edit-actions {
+      display: flex;
+      gap: var(--spacing-sm);
+      margin-top: var(--spacing-sm);
+      justify-content: flex-end;
+
+      button {
+        font-size: var(--font-size-sm);
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: var(--border-radius-sm);
+        cursor: pointer;
+      }
+
+      .edit-save-btn {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-secondary);
+        border: none;
+
+        &:hover:not(:disabled) {
+          opacity: 0.85;
+        }
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
+
+      .edit-cancel-btn {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-secondary);
+        border: 1px solid var(--color-border-primary);
       }
     }
   }

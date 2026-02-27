@@ -186,6 +186,7 @@ public class PlayWebSocket {
                 case "progress_mark" -> handleProgressMark(msg);
                 case "character_update" -> handleCharacterUpdate(msg);
                 case "backtrack" -> handleBacktrack(msg);
+                case "edit_block" -> handleEditBlock(msg);
                 default -> errorJson("Unknown message type: " + type);
             };
         } catch (Exception e) {
@@ -441,6 +442,23 @@ public class PlayWebSocket {
         journal.truncateJournal(campaignId, blockIndex);
         memoryProvider.clear(campaignId);
         return objectMapper.writeValueAsString(Map.of("type", "backtrack_done"));
+    }
+
+    private String handleEditBlock(JsonNode msg) throws Exception {
+        int blockIndex = msg.path("blockIndex").asInt(-1);
+        String originalText = msg.path("originalText").asText("");
+        String newText = msg.path("newText").asText("");
+        if (blockIndex < 0 || originalText.isEmpty() || newText.isEmpty()) {
+            return errorJson("Invalid edit_block request");
+        }
+        journal.replaceBlockText(campaignId, originalText, newText);
+        memoryProvider.clear(campaignId);
+        String html = prettify.markdownToHtml(newText.trim());
+        return objectMapper.writeValueAsString(Map.of(
+                "type", "edit_done",
+                "blockIndex", blockIndex,
+                "html", html,
+                "markdown", newText.trim()));
     }
 
     private String extractLastPlayerInput(String journalContent) {

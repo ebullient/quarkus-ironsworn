@@ -315,6 +315,32 @@ public class GameJournal {
         }
     }
 
+    /**
+     * Replace block text in the journal file using simple string substitution.
+     * The originalText and newText are the raw markdown content (without structural
+     * delimiters like {@code <player>} tags).
+     */
+    public void replaceBlockText(String campaignId, String originalText, String newText) {
+        Object lock = CAMPAIGN_LOCKS.computeIfAbsent(campaignId, k -> new Object());
+        synchronized (lock) {
+            Path path = journalPath(campaignId);
+            try {
+                String content = Files.readString(path, StandardCharsets.UTF_8);
+                String updated = content.replace(originalText.trim(), newText.trim());
+                if (updated.equals(content)) {
+                    log.warnf("replaceBlockText: original text not found in journal %s", campaignId);
+                    return;
+                }
+                Files.writeString(path, updated, StandardCharsets.UTF_8);
+                if (storyMemoryIndexer != null) {
+                    storyMemoryIndexer.requestIndex(campaignId);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to replace block text in campaign: " + campaignId, e);
+            }
+        }
+    }
+
     public Campaign getCampaign(String campaignId) {
         Path path = journalPath(campaignId);
         if (!Files.exists(path)) {

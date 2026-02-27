@@ -115,6 +115,9 @@ class PlayInterface {
             case 'backtrack_done':
                 this.handleBacktrackDone();
                 break;
+            case 'edit_done':
+                this.handleEditDone(msg);
+                break;
             case 'error':
                 this.removeLoadingIndicator();
                 this.addSystemMessage('Error: ' + msg.message);
@@ -320,23 +323,17 @@ class PlayInterface {
     }
 
     appendBlocks(blocks, extraClass) {
-        const grouped = [];
         for (const block of (blocks || [])) {
             const type = block.type || 'assistant';
-            const html = block.html || '';
-            const last = grouped.length > 0 ? grouped[grouped.length - 1] : null;
-            if (type === 'assistant' && last && last.type === 'assistant') {
-                last.html += '\n' + html;
-            } else {
-                grouped.push({ type, html, blockIndex: block.index });
-            }
-        }
-
-        for (const block of grouped) {
             const div = document.createElement('div');
-            div.className = 'message ' + (extraClass ? (extraClass + ' ') : '') + (block.type || 'assistant');
-            div.innerHTML = block.html;
-            if (block.blockIndex != null) div.dataset.blockIndex = block.blockIndex;
+            div.className = 'message ' + (extraClass ? (extraClass + ' ') : '') + type;
+            div.innerHTML = block.html || '';
+            if (block.index != null) div.dataset.blockIndex = block.index;
+            if (block.markdown != null) div.dataset.markdown = block.markdown;
+            // Add edit button for user/assistant blocks with a server index
+            if (block.index != null && (type === 'user' || type === 'assistant')) {
+                this.addEditButton(div);
+            }
             this.chatContainer.appendChild(div);
         }
         this.scrollToBottom();
@@ -1019,6 +1016,89 @@ class PlayInterface {
         }
         selected.forEach(el => el.remove());
         this.exitBacktrackMode();
+    }
+
+    // --- Inline block editing ---
+
+    addEditButton(div) {
+        const btn = document.createElement('button');
+        btn.className = 'edit-btn';
+        btn.innerHTML = '&#x270E;';
+        btn.title = 'Edit this block';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.startEdit(div);
+        });
+        div.appendChild(btn);
+    }
+
+    startEdit(div) {
+        if (div.classList.contains('editing')) return;
+        div.classList.add('editing');
+
+        const markdown = div.dataset.markdown || '';
+        div._originalHtml = div.innerHTML;
+
+        div.innerHTML = '';
+        const textarea = document.createElement('textarea');
+        textarea.className = 'edit-textarea';
+        textarea.value = markdown;
+        textarea.rows = Math.max(3, markdown.split('\n').length + 1);
+        div.appendChild(textarea);
+
+        const actions = document.createElement('div');
+        actions.className = 'edit-actions';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Save';
+        saveBtn.className = 'edit-save-btn';
+        saveBtn.addEventListener('click', () => this.saveEdit(div, textarea.value));
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.className = 'edit-cancel-btn';
+        cancelBtn.addEventListener('click', () => this.cancelEdit(div));
+
+        actions.appendChild(saveBtn);
+        actions.appendChild(cancelBtn);
+        div.appendChild(actions);
+
+        textarea.focus();
+    }
+
+    cancelEdit(div) {
+        div.innerHTML = div._originalHtml;
+        div.classList.remove('editing');
+        delete div._originalHtml;
+    }
+
+    saveEdit(div, newText) {
+        const originalText = div.dataset.markdown || '';
+        if (newText.trim() === originalText.trim()) {
+            this.cancelEdit(div);
+            return;
+        }
+        const blockIndex = parseInt(div.dataset.blockIndex);
+        const blockType = div.classList.contains('user') ? 'user' : 'assistant';
+        this.send({
+            type: 'edit_block',
+            blockIndex,
+            blockType,
+            originalText,
+            newText
+        });
+        // Disable save while waiting
+        div.querySelector('.edit-save-btn').disabled = true;
+    }
+
+    handleEditDone(msg) {
+        const div = this.chatContainer.querySelector('.message[data-block-index="' + msg.blockIndex + '"]');
+        if (!div) return;
+        div.classList.remove('editing');
+        delete div._originalHtml;
+        div.innerHTML = msg.html;
+        div.dataset.markdown = msg.markdown;
+        this.addEditButton(div);
     }
 
     // --- Bottom drawer (narrow screens) ---

@@ -15,7 +15,7 @@ public class JournalParser {
     }
 
     /** A typed block of journal content with pre-rendered HTML. */
-    public record JournalBlock(String type, String html, int index) {
+    public record JournalBlock(String type, String html, String markdown, int index) {
     }
 
     private static final String PLAYER_OPEN = "<player>";
@@ -485,6 +485,6 @@ public class JournalParser {
             type = "assistant";
         }
         String html = augmenter.markdownToHtml(text);
-        return new JournalBlock(type, html, index);
+        return new JournalBlock(type, html, text, index);
     }
 }
