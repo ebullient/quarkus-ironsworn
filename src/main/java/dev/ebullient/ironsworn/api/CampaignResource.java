@@ -41,7 +41,8 @@ public class CampaignResource {
     public String ask(@RestPath String campaignId, String question) {
         CharacterSheet character = journal.readCharacter(campaignId);
         String charCtx = formatCharacterContext(character);
-        String journalCtx = JournalParser.stripNonNarrative(journal.getRecentJournal(campaignId, 20));
+        String journalCtx = JournalParser.stripNonNarrative(journal.getRecentJournal(campaignId, 20))
+            .replaceAll("\\n+", "\n");
         String memoryCtx = storyMemory.relevantMemory(campaignId, question);
 
         CampaignResponse response = assistant.answer(campaignId, charCtx, journalCtx, memoryCtx, question);
