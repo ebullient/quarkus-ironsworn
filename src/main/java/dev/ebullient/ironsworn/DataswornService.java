@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import Datasworn.AtlasEntry;
 import Datasworn.MoveCategory;
 import Datasworn.OracleTablesCollection;
+import Datasworn.Rules;
 import Datasworn.RulesPackageRuleset;
 import io.quarkus.runtime.Startup;
 
@@ -37,6 +38,7 @@ public class DataswornService {
     private final Map<String, AtlasEntry> locations = new LinkedHashMap<>();
     private final Map<String, MoveCategory> moves = new LinkedHashMap<>();
     private final Map<String, OracleTablesCollection> oracles = new LinkedHashMap<>();
+    private Rules rules;
 
     public DataswornService() {
         jsonMapper = new ObjectMapper()
@@ -46,11 +48,26 @@ public class DataswornService {
         loaderOptions.setMaxAliasesForCollections(Integer.MAX_VALUE);
         yaml = new Yaml(loaderOptions);
 
+        loadRules();
         loadAtlas();
         loadMoves();
         loadOracles();
 
         log.infof("Loaded %d move categories and %d oracle collections", moves.size(), oracles.size());
+    }
+
+    private void loadRules() {
+        try (InputStream is = Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream("rules/rules.yaml")) {
+            if (is == null) {
+                log.warn("rules/rules.yaml not found on classpath");
+                return;
+            }
+            RulesPackageRuleset ruleset = loadYaml(is, RulesPackageRuleset.class);
+            rules = ruleset.getRules();
+        } catch (Exception e) {
+            log.errorf(e, "Failed to load rules.yaml: %s", e.getMessage());
+        }
     }
 
     private void loadAtlas() {
@@ -123,6 +140,10 @@ public class DataswornService {
     private <T> T loadYaml(Object yamlInput, Class<T> type) {
         Object raw = (yamlInput instanceof InputStream is) ? yaml.load(is) : yaml.load((String) yamlInput);
         return jsonMapper.convertValue(raw, type);
+    }
+
+    public Rules getRules() {
+        return rules;
     }
 
     public Map<String, AtlasEntry> getAtlas() {

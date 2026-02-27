@@ -10,6 +10,7 @@ import jakarta.ws.rs.Path;
 import Datasworn.AtlasEntry;
 import Datasworn.MoveCategory;
 import Datasworn.OracleTablesCollection;
+import Datasworn.Rules;
 import dev.ebullient.ironsworn.DataswornService;
 import io.quarkus.qute.CheckedTemplate;
 import io.quarkus.qute.TemplateInstance;
@@ -27,6 +28,8 @@ public class Reference {
         public static native TemplateInstance moves(Map<String, MoveCategory> moves);
 
         public static native TemplateInstance oracles(Map<String, OracleTablesCollection> oracles);
+
+        public static native TemplateInstance rules(Rules rules);
     }
 
     @Inject
@@ -54,5 +57,11 @@ public class Reference {
     @Path("/oracles")
     public TemplateInstance oracles() {
         return Templates.oracles(data.getOracles());
+    }
+
+    @GET
+    @Path("/rules")
+    public TemplateInstance rules() {
+        return Templates.rules(data.getRules());
     }
 }

@@ -1,0 +1,57 @@
+{#include base}
+{#title}Rules - Ironsworn{/title}
+
+{#stylesheets}
+<link rel="stylesheet" href="/reference.css">
+{/stylesheets}
+
+{#header-title}Ironsworn Rules{/header-title}
+
+{#mainClass}class="reference"{/mainClass}
+{#content}
+<ul>
+<li><a href="#stats">Stats</a></li>
+<li><a href="#condition-meters">Condition Meters</a></li>
+<li><a href="#impacts">Impacts</a></li>
+<li><a href="#special-tracks">Special Tracks</a></li>
+</ul>
+
+<h2 id="stats">Stats</h2>
+<p>Your character has five stats, each representing your approach to challenges.</p>
+{#for entry in rules.stats.entrySet}
+<h3 id="{entry.key}">{entry.value.label.value}</h3>
+{util:mdToHtml(entry.value.description)}
+{/for}
+
+<h2 id="condition-meters">Condition Meters</h2>
+<p>Condition meters represent your character's current status.</p>
+{#for entry in rules.conditionMeters.entrySet}
+<h3 id="{entry.key}">{entry.value.label.value}</h3>
+{util:mdToHtml(entry.value.description)}
+<p><strong>Starting value:</strong> {entry.value.value} / {entry.value.max}</p>
+{#if entry.value.shared}<p><em>Shared across all players.</em></p>{/if}
+{/for}
+
+<h2 id="impacts">Impacts</h2>
+<p>Impacts represent lasting setbacks that affect your momentum and recovery.</p>
+{#for entry in rules.impacts.entrySet}
+<h3 id="{entry.key}">{entry.value.label.value}</h3>
+{util:mdToHtml(entry.value.description)}
+
+{#for impact in entry.value.contents.entrySet}
+<h4 id="{impact.key}">{impact.value.label.value}</h4>
+{util:mdToHtml(impact.value.description)}
+{#if impact.value.permanent}<p><em>Permanent.</em></p>{/if}
+{#if impact.value.preventsRecovery}<p><em>Prevents recovery of: {#for pr in impact.value.preventsRecovery}{pr.value.value}{#if pr_hasNext}, {/if}{/for}</em></p>{/if}
+{/for}
+
+{/for}
+
+<h2 id="special-tracks">Special Tracks</h2>
+{#for entry in rules.specialTracks.entrySet}
+<h3 id="{entry.key}">{entry.value.label.value}</h3>
+{util:mdToHtml(entry.value.description)}
+{#if entry.value.optional}<p><em>Optional rule.</em></p>{/if}
+{/for}
+{/content}
+{/include}
