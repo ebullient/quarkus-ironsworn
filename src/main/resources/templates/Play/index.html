@@ -10,26 +10,22 @@
     <div class="campaigns-page">
         <h2>Your Campaigns</h2>
 
-        {#if campaigns.isEmpty()}
-        <p class="empty-state">No campaigns yet. Create one to begin your journey in the Ironlands.</p>
-        {#else}
-        <div class="campaign-list">
+        <div class="cards">
+            <div class="card new-campaign">
+                <h3>New Campaign</h3>
+                <form id="new-campaign-form">
+                    <label for="char-name">Character Name</label>
+                    <input type="text" id="char-name" placeholder="e.g., Kira of the Havens" required>
+                    <button type="submit" class="btn-primary">Begin</button>
+                </form>
+            </div>
+
             {#for campaign in campaigns}
-            <a href="/play/{campaign.id}" class="campaign-card">
+            <a href="/play/{campaign.id}" class="card campaign-card">
                 <h3>{campaign.name}</h3>
                 <span class="campaign-id">{campaign.id}</span>
             </a>
             {/for}
-        </div>
-        {/if}
-
-        <div class="new-campaign">
-            <h3>New Campaign</h3>
-            <form id="new-campaign-form">
-                <label for="char-name">Character Name</label>
-                <input type="text" id="char-name" placeholder="e.g., Kira of the Havens" required>
-                <button type="submit" class="btn-primary">Begin</button>
-            </form>
         </div>
     </div>
     {/content}

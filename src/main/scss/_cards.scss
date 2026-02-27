@@ -17,3 +17,12 @@
     box-shadow: var(--shadow-sm);
   }
 }
+
+.reference-cards .card {
+  display: flex;
+  flex-direction: column;
+
+  p {
+    flex: 1;
+  }
+}
