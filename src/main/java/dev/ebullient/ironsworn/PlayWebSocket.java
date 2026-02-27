@@ -77,7 +77,6 @@ public class PlayWebSocket {
     String campaignId;
 
     @OnOpen
-    @RunOnVirtualThread
     public String onOpen(@PathParam String campaignId) {
         this.campaignId = campaignId;
         GENERATION_LOCKS.computeIfAbsent(campaignId, k -> new AtomicBoolean(false));
@@ -89,14 +88,8 @@ public class PlayWebSocket {
         // Warm long-term story memory in the background for this campaign.
         storyMemoryIndexer.warmIndex(campaignId);
 
-        try {
-            return journal.isCreationPhase(campaignId)
-                    ? handleCreationPhaseOpen()
-                    : handleActivePlayOpen();
-        } catch (Exception e) {
-            Log.errorf(e, "Failed to open campaign: %s", campaignId);
-            return errorJson("Campaign not found: " + campaignId);
-        }
+        // Send lightweight handshake — heavy work deferred until client sends "start"
+        return connectedJson();
     }
 
     private String handleCreationPhaseOpen() throws Exception {
@@ -234,6 +227,8 @@ public class PlayWebSocket {
             String type = msg.path("type").asText();
 
             return switch (type) {
+                // Handshake
+                case "start" -> handleStart();
                 // Creation flow
                 case "creation_chat" -> handleCreationChat(msg);
                 case "finalize_creation" -> handleFinalizeCreation(msg);
@@ -251,6 +246,19 @@ public class PlayWebSocket {
         } catch (Exception e) {
             Log.errorf(e, "Error processing message for campaign: %s", campaignId);
             return errorJson(e.getMessage());
+        }
+    }
+
+    // --- Handshake ---
+
+    private String handleStart() throws Exception {
+        try {
+            return journal.isCreationPhase(campaignId)
+                    ? handleCreationPhaseOpen()
+                    : handleActivePlayOpen();
+        } catch (Exception e) {
+            Log.errorf(e, "Failed to open campaign: %s", campaignId);
+            return errorJson("Campaign not found: " + campaignId);
         }
     }
 
@@ -638,6 +646,14 @@ public class PlayWebSocket {
 
     private String formatPlayerInput(String text) {
         return "<player>\n" + text.strip() + "\n</player>";
+    }
+
+    private String connectedJson() {
+        try {
+            return objectMapper.writeValueAsString(Map.of("type", "connected"));
+        } catch (Exception e) {
+            return "{\"type\":\"connected\"}";
+        }
     }
 
     private String errorJson(String message) {

@@ -64,6 +64,10 @@ class PlayInterface {
 
     handleMessage(msg) {
         switch (msg.type) {
+            // Handshake
+            case 'connected':
+                this.send({ type: 'start' });
+                break;
             // Creation flow
             case 'creation_phase':
                 this.handleCreationPhase(msg);
