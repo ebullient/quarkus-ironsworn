@@ -114,14 +114,15 @@ public class PlayWebSocket {
                 "type", "creation_ready",
                 "character", character)));
 
-        // Re-engage the guide with the last player message
-        String lastPlayerInput = extractLastPlayerInput(existingJournal);
-        if (lastPlayerInput == null) {
-            return objectMapper.writeValueAsString(Map.of(
-                    "type", "creation_ready",
-                    "character", character));
+        // Re-engage the guide if the journal ends with unnarrated content
+        // (player input or mechanical result like an oracle roll)
+        if (!needsNarration(existingJournal)) {
+            return objectMapper.writeValueAsString(Map.of("type", "ready"));
         }
 
+        String lastPlayerInput = endsWithPlayerEntry(existingJournal)
+                ? extractLastPlayerInput(existingJournal)
+                : "Continue the conversation based on what just happened.";
         return reengageCreationGuide(character, existingJournal, lastPlayerInput);
     }
 
@@ -272,7 +273,8 @@ public class PlayWebSocket {
 
         try {
             String sessionId = "inspire-" + campaignId;
-            CreationResponse response = creationAssistant.inspire(sessionId);
+            String name = journal.readCharacter(campaignId).name();
+            CreationResponse response = creationAssistant.inspire(sessionId, name);
             return objectMapper.writeValueAsString(Map.of(
                     "type", "inspire-create",
                     "text", response.message() != null ? response.message() : ""));

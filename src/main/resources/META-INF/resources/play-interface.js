@@ -66,6 +66,7 @@ class PlayInterface {
         switch (msg.type) {
             // Handshake
             case 'connected':
+                this.addLoadingIndicator('Preparing your adventure...');
                 this.send({ type: 'start' });
                 break;
             // Creation flow
@@ -106,6 +107,7 @@ class PlayInterface {
                 this.addLoadingIndicator();
                 break;
             case 'ready':
+                this.removeLoadingIndicator();
                 this.enableInput();
                 break;
             case 'backtrack_done':
@@ -163,14 +165,18 @@ class PlayInterface {
     }
 
     handleCreationPhase(msg) {
+        this.removeLoadingIndicator();
         if (msg.phase === 'creation') {
             this.enterCreationMode();
+            // Fresh creation will call the LLM — show loading while waiting
+            this.addLoadingIndicator();
         } else if (msg.phase === 'active') {
             this.exitCreationMode();
         }
     }
 
     handleInspireCreation(msg) {
+        this.removeLoadingIndicator();
         // Inject inspiration text as a chat widget
         const widget = document.createElement('div');
         widget.className = 'message creation-widget inspiration-text';
@@ -297,11 +303,13 @@ class PlayInterface {
     }
 
     handleCreationResume(msg) {
+        this.removeLoadingIndicator();
         this.appendBlocks((msg.blocks || []), 'creation-widget');
         // Stats widget will be injected by the subsequent creation_ready message
     }
 
     handlePlayResume(msg) {
+        this.removeLoadingIndicator();
         this.appendBlocks((msg.blocks || []));
     }
 
@@ -510,11 +518,12 @@ class PlayInterface {
         this.scrollToBottom();
     }
 
-    addLoadingIndicator() {
+    addLoadingIndicator(text) {
+        this.removeLoadingIndicator();
         const div = document.createElement('div');
         div.className = 'loading';
         div.id = 'loading';
-        div.textContent = this.creationMode ? 'The guide considers...' : 'The oracle speaks...';
+        div.textContent = text || (this.creationMode ? 'The guide considers...' : 'The oracle speaks...');
         this.chatContainer.appendChild(div);
         this.scrollToBottom();
     }
