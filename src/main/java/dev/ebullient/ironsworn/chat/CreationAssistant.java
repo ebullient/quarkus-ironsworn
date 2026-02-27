@@ -24,8 +24,4 @@ public interface CreationAssistant {
             int exchangeCount,
             String playerInput,
             String vowInstruction);
-
-    @SystemMessage(fromResource = "prompts/creation-inspire-system.txt")
-    @UserMessage(fromResource = "prompts/creation-inspire-user.txt")
-    CreationResponse inspire(@MemoryId String sessionId, String name);
 }

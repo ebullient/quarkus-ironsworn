@@ -136,9 +136,7 @@ class PlayInterface {
         // Hide gameplay chrome during creation
         document.getElementById('character-bar').classList.add('hidden');
         document.getElementById('scene-bar').classList.add('hidden');
-        if (this.drawerToggle) {
-            this.drawerToggle.classList.add('hidden');
-        }
+        // Hide inspire button initially — shown after stats are confirmed
         if (this.inspireBtn) {
             this.inspireBtn.classList.add('hidden');
         }
@@ -151,9 +149,6 @@ class PlayInterface {
         this.creationMode = false;
         document.getElementById('character-bar').classList.remove('hidden');
         document.getElementById('scene-bar').classList.remove('hidden');
-        if (this.drawerToggle) {
-            this.drawerToggle.classList.remove('hidden');
-        }
         if (this.inspireBtn) {
             this.inspireBtn.classList.remove('hidden');
         }
@@ -225,6 +220,10 @@ class PlayInterface {
             document.getElementById('confirm-stats-btn').textContent = 'Stats confirmed';
             document.getElementById('confirm-stats-btn').disabled = true;
             widget.classList.add('confirmed');
+            // Show inspire button for resumed creation
+            if (this.inspireBtn) {
+                this.inspireBtn.classList.remove('hidden');
+            }
         } else {
             // Validate on every input change
             const inputs = widget.querySelectorAll('input[type="number"]');
@@ -289,6 +288,11 @@ class PlayInterface {
         btn.textContent = 'Stats confirmed';
         btn.disabled = true;
         widget.classList.add('confirmed');
+
+        // Show inspire button now that stats are set
+        if (this.inspireBtn) {
+            this.inspireBtn.classList.remove('hidden');
+        }
     }
 
     handleCreationResponse(msg) {
@@ -406,6 +410,10 @@ class PlayInterface {
         return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
     typewriter(el, text, speed, onComplete) {
         el.textContent = '';
         let i = 0;
@@ -491,7 +499,15 @@ class PlayInterface {
         const div = document.createElement('div');
         div.className = 'message user';
         if (this.creationMode) div.classList.add('creation-widget');
-        div.textContent = text;
+        // Render paragraph breaks so formatting matches the journal replay
+        const paragraphs = text.split(/\n\s*\n/);
+        if (paragraphs.length > 1) {
+            div.innerHTML = paragraphs
+                .map(p => '<p>' + this.escapeHtml(p).replace(/\n/g, '<br>') + '</p>')
+                .join('');
+        } else {
+            div.innerHTML = '<p>' + this.escapeHtml(text).replace(/\n/g, '<br>') + '</p>';
+        }
         this.chatContainer.appendChild(div);
         this.scrollToBottom();
     }
@@ -577,10 +593,14 @@ class PlayInterface {
 
     handleOracleResult(msg) {
         const r = msg.result;
-        this.addMechanicalMessage(
-            '<strong>Oracle</strong> (' + r.tableName + '): <strong>' + r.htmlResultText + '</strong> <span class="roll-detail">[' + r.roll + ']</span>',
-            'oracle'
-        );
+        const div = document.createElement('div');
+        div.className = 'message mechanical oracle';
+        div.innerHTML = '<strong>Oracle</strong> (' + r.tableName + '): <strong>' + r.htmlResultText + '</strong> <span class="roll-detail">[' + r.roll + ']</span>';
+        if (msg.blockIndex != null) {
+            div.dataset.blockIndex = msg.blockIndex;
+        }
+        this.chatContainer.appendChild(div);
+        this.scrollToBottom();
     }
 
     handleCharacterUpdate(msg) {
@@ -899,7 +919,7 @@ class PlayInterface {
     sendInspire() {
         this.disableInput();
         this.addLoadingIndicator();
-        this.send({ type: 'inspire' });
+        this.send({ type: this.creationMode ? 'creation_inspire' : 'inspire' });
     }
 
     // --- Backtrack mode ---

@@ -12,7 +12,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import dev.ebullient.ironsworn.chat.CreationAssistant;
-import dev.ebullient.ironsworn.chat.CreationResponse;
 import dev.ebullient.ironsworn.chat.InspireResult;
 import dev.ebullient.ironsworn.chat.MarkdownAugmenter;
 import dev.ebullient.ironsworn.chat.OracleService;
@@ -24,7 +23,6 @@ import dev.ebullient.ironsworn.memory.StoryMemoryService;
 import dev.ebullient.ironsworn.model.CharacterSheet;
 import dev.ebullient.ironsworn.model.OracleResult;
 import dev.ebullient.ironsworn.model.Outcome;
-import dev.ebullient.ironsworn.model.Rank;
 import dev.ebullient.ironsworn.model.Vow;
 import io.quarkus.logging.Log;
 import io.quarkus.websockets.next.OnClose;
@@ -76,6 +74,8 @@ public class PlayWebSocket {
 
     String campaignId;
 
+    CreationEngine creationEngine;
+
     @OnOpen
     public String onOpen(@PathParam String campaignId) {
         this.campaignId = campaignId;
@@ -90,67 +90,6 @@ public class PlayWebSocket {
 
         // Send lightweight handshake — heavy work deferred until client sends "start"
         return connectedJson();
-    }
-
-    private String handleCreationPhaseOpen() throws Exception {
-        // Send creation phase indicator
-        connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                "type", "creation_phase",
-                "phase", "creation")));
-
-        String existingJournal = journal.getRecentJournal(campaignId, 100);
-        if (existingJournal.isBlank()) {
-            // Fresh creation — generate and send inspiration
-            return handleInspireCreation();
-        }
-
-        // Replay existing conversation to the client as pre-rendered blocks
-        var blocks = JournalParser.parseToBlocks(existingJournal, prettify);
-        connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                "type", "creation_resume",
-                "blocks", blocks)));
-        CharacterSheet character = journal.readCharacter(campaignId);
-        connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                "type", "creation_ready",
-                "character", character)));
-
-        // Re-engage the guide if the journal ends with unnarrated content
-        // (player input or mechanical result like an oracle roll)
-        if (!needsNarration(existingJournal)) {
-            return objectMapper.writeValueAsString(Map.of("type", "ready"));
-        }
-
-        String lastPlayerInput = endsWithPlayerEntry(existingJournal)
-                ? extractLastPlayerInput(existingJournal)
-                : "Continue the conversation based on what just happened.";
-        return reengageCreationGuide(character, existingJournal, lastPlayerInput);
-    }
-
-    private String reengageCreationGuide(CharacterSheet character, String existingJournal, String lastPlayerInput)
-            throws Exception {
-        String journalContext = journal.getRecentJournal(campaignId, 30);
-        int exchangeCount = countExchanges(journalContext);
-        String vowInstruction = exchangeCount >= 3
-                ? "IMPORTANT: The player has responded %d times. You MUST now suggest a background vow. Set suggestedVow to a short imperative phrase based on the story (e.g. \"Find my lost sister\"). Do NOT ask more questions."
-                        .formatted(exchangeCount)
-                : "";
-        memoryProvider.clear(campaignId);
-        CreationResponse response = creationAssistant.guide(
-                campaignId, character.name(),
-                character.edge(), character.heart(), character.iron(),
-                character.shadow(), character.wits(),
-                journalContext, exchangeCount, lastPlayerInput,
-                vowInstruction);
-
-        String guideMessage = response.message() != null ? response.message() : "";
-        if (!guideMessage.isBlank()) {
-            journal.appendNarrative(campaignId, guideMessage);
-        }
-
-        return objectMapper.writeValueAsString(Map.of(
-                "type", "creation_response",
-                "message", guideMessage,
-                "suggestedVow", response.suggestedVow()));
     }
 
     private String handleActivePlayOpen() throws Exception {
@@ -230,9 +169,14 @@ public class PlayWebSocket {
             return switch (type) {
                 // Handshake
                 case "start" -> handleStart();
-                // Creation flow
-                case "creation_chat" -> handleCreationChat(msg);
-                case "finalize_creation" -> handleFinalizeCreation(msg);
+                // Creation flow (delegated to CreationEngine)
+                case "creation_chat" -> creationEngine.handleChat(msg);
+                case "creation_inspire" -> creationEngine.handleInspire();
+                case "finalize_creation" -> {
+                    String result = creationEngine.handleFinalize(msg);
+                    creationEngine = null;
+                    yield result;
+                }
                 // Gameplay flow
                 case "narrative" -> handleNarrative(msg);
                 case "move_result" -> handleMoveResult(msg);
@@ -254,129 +198,17 @@ public class PlayWebSocket {
 
     private String handleStart() throws Exception {
         try {
-            return journal.isCreationPhase(campaignId)
-                    ? handleCreationPhaseOpen()
-                    : handleActivePlayOpen();
+            if (journal.isCreationPhase(campaignId)) {
+                creationEngine = new CreationEngine(connection, journal, creationAssistant,
+                        memoryProvider, prettify, objectMapper, campaignId,
+                        GENERATION_LOCKS.get(campaignId));
+                return creationEngine.handleOpen();
+            }
+            return handleActivePlayOpen();
         } catch (Exception e) {
             Log.errorf(e, "Failed to open campaign: %s", campaignId);
             return errorJson("Campaign not found: " + campaignId);
         }
-    }
-
-    // --- Creation flow ---
-
-    private String handleInspireCreation() throws Exception {
-        AtomicBoolean lock = GENERATION_LOCKS.get(campaignId);
-        if (lock != null && !lock.compareAndSet(false, true)) {
-            return errorJson("Generation already in progress");
-        }
-
-        try {
-            String sessionId = "inspire-" + campaignId;
-            String name = journal.readCharacter(campaignId).name();
-            CreationResponse response = creationAssistant.inspire(sessionId, name);
-            return objectMapper.writeValueAsString(Map.of(
-                    "type", "inspire-create",
-                    "text", response.message() != null ? response.message() : ""));
-        } finally {
-            if (lock != null) {
-                lock.set(false);
-            }
-        }
-    }
-
-    private String handleCreationChat(JsonNode msg) throws Exception {
-        String text = msg.path("text").asText();
-        if (text.isBlank()) {
-            return errorJson("Empty text");
-        }
-
-        AtomicBoolean lock = GENERATION_LOCKS.get(campaignId);
-        if (lock != null && !lock.compareAndSet(false, true)) {
-            return errorJson("Generation already in progress");
-        }
-
-        try {
-            // Journal the player's input
-            journal.appendNarrative(campaignId, formatPlayerInput(text));
-
-            CharacterSheet character = journal.readCharacter(campaignId);
-            String journalContext = journal.getRecentJournal(campaignId, 30);
-            int exchangeCount = countExchanges(journalContext);
-
-            // Clear chat memory so the LLM only sees the current system+user message
-            // (journal context is already included in the user message template)
-            memoryProvider.clear(campaignId);
-
-            String vowInstruction = exchangeCount >= 3
-                    ? "IMPORTANT: The player has responded %d times. You MUST now suggest a background vow. Set suggestedVow to a short imperative phrase based on the story (e.g. \"Find my lost sister\"). Do NOT ask more questions."
-                            .formatted(exchangeCount)
-                    : "";
-
-            CreationResponse response = creationAssistant.guide(
-                    campaignId,
-                    character.name(),
-                    character.edge(), character.heart(), character.iron(),
-                    character.shadow(), character.wits(),
-                    journalContext,
-                    exchangeCount,
-                    text,
-                    vowInstruction);
-
-            // Journal the guide's response
-            String guideMessage = response.message() != null ? response.message() : "";
-            if (!guideMessage.isBlank()) {
-                journal.appendNarrative(campaignId, guideMessage);
-            }
-
-            return objectMapper.writeValueAsString(Map.of(
-                    "type", "creation_response",
-                    "message", guideMessage,
-                    "suggestedVow", response.suggestedVow()));
-        } finally {
-            if (lock != null) {
-                lock.set(false);
-            }
-        }
-    }
-
-    private String handleFinalizeCreation(JsonNode msg) throws Exception {
-        // Parse the finalized character data
-        JsonNode charNode = msg.path("character");
-        CharacterSheet character = new CharacterSheet(
-                journal.readCharacter(campaignId).name(),
-                charNode.path("edge").asInt(1),
-                charNode.path("heart").asInt(1),
-                charNode.path("iron").asInt(1),
-                charNode.path("shadow").asInt(1),
-                charNode.path("wits").asInt(1),
-                5, 5, 5, 2,
-                parseVows(charNode));
-
-        // Update the character sheet in the journal (backstory conversation is already journaled)
-        journal.updateCharacter(campaignId, character);
-
-        // Send character update and transition to active play
-        connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                "type", "character_update",
-                "character", character)));
-
-        return objectMapper.writeValueAsString(Map.of(
-                "type", "creation_phase",
-                "phase", "active"));
-    }
-
-    private List<Vow> parseVows(JsonNode charNode) {
-        List<Vow> vows = new ArrayList<>();
-        if (charNode.has("vows") && charNode.get("vows").isArray()) {
-            for (JsonNode vowNode : charNode.get("vows")) {
-                vows.add(new Vow(
-                        vowNode.path("description").asText(),
-                        Rank.valueOf(vowNode.path("rank").asText("DANGEROUS")),
-                        vowNode.path("progress").asInt(0)));
-            }
-        }
-        return vows;
     }
 
     // --- Gameplay flow ---
@@ -548,9 +380,11 @@ public class PlayWebSocket {
         String tableKey = msg.path("tableKey").asText();
         OracleResult result = oracleService.rollOracle(collectionKey, tableKey);
         journal.appendMechanical(campaignId, result.toJournalEntry());
+        int blockIndex = JournalParser.countBlocks(journal.getRecentJournal(campaignId, 100)) - 1;
         return objectMapper.writeValueAsString(Map.of(
                 "type", "oracle_result",
-                "result", result));
+                "result", result,
+                "blockIndex", blockIndex));
     }
 
     private String handleOracleManual(JsonNode msg) throws Exception {
@@ -559,9 +393,11 @@ public class PlayWebSocket {
         int roll = msg.path("roll").asInt();
         OracleResult result = oracleService.rollOracleManual(collectionKey, tableKey, roll);
         journal.appendMechanical(campaignId, result.toJournalEntry());
+        int blockIndex = JournalParser.countBlocks(journal.getRecentJournal(campaignId, 100)) - 1;
         return objectMapper.writeValueAsString(Map.of(
                 "type", "oracle_result",
-                "result", result));
+                "result", result,
+                "blockIndex", blockIndex));
     }
 
     private String handleProgressMark(JsonNode msg) throws Exception {

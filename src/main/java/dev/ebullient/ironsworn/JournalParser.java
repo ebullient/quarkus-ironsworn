@@ -421,6 +421,64 @@ public class JournalParser {
         return -1;
     }
 
+    /**
+     * Count the number of blocks in the journal content without rendering HTML.
+     * Uses the same block-boundary logic as {@link #parseToBlocks}.
+     */
+    public static int countBlocks(String journalContent) {
+        if (journalContent == null || journalContent.isBlank()) {
+            return 0;
+        }
+
+        int blockCount = 0;
+        String currentType = null;
+        boolean inPlayerBlock = false;
+
+        for (String line : journalContent.split("\n")) {
+            String trimmed = line.trim();
+
+            if (inPlayerBlock) {
+                if (isPlayerEntryEnd(trimmed)) {
+                    inPlayerBlock = false;
+                    blockCount++;
+                    currentType = null;
+                }
+                continue;
+            }
+
+            if (trimmed.isEmpty()) {
+                if (currentType != null) {
+                    blockCount++;
+                    currentType = null;
+                }
+                continue;
+            }
+
+            if (isPlayerEntry(trimmed)) {
+                if (currentType != null) {
+                    blockCount++;
+                }
+                currentType = "user";
+                inPlayerBlock = true;
+            } else if (isMechanicalEntry(trimmed)) {
+                if (currentType != null && !"mechanical".equals(currentType)) {
+                    blockCount++;
+                }
+                currentType = "mechanical";
+            } else {
+                if (currentType != null && !"assistant".equals(currentType)) {
+                    blockCount++;
+                }
+                currentType = "assistant";
+            }
+        }
+
+        if (currentType != null) {
+            blockCount++;
+        }
+        return blockCount;
+    }
+
     private static JournalBlock flushBlock(String type, List<String> lines, int index, MarkdownAugmenter augmenter) {
         String text = String.join("\n", lines).trim();
         if (type == null) {
