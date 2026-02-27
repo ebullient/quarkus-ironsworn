@@ -1092,8 +1092,12 @@ class PlayInterface {
     }
 
     handleEditDone(msg) {
+        console.log('edit_done received', msg);
         const div = this.chatContainer.querySelector('.message[data-block-index="' + msg.blockIndex + '"]');
-        if (!div) return;
+        if (!div) {
+            console.warn('edit_done: no div found for blockIndex', msg.blockIndex);
+            return;
+        }
         div.classList.remove('editing');
         delete div._originalHtml;
         div.innerHTML = msg.html;
