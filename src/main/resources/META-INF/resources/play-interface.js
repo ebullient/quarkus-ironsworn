@@ -44,6 +44,7 @@ class PlayInterface {
         this.initMeters();
         this.initInspire();
         this.initBacktrack();
+        this._messageHandlers = this._buildMessageHandlers();
     }
 
     // --- WebSocket ---
@@ -62,68 +63,58 @@ class PlayInterface {
         };
     }
 
-    handleMessage(msg) {
-        switch (msg.type) {
+    _buildMessageHandlers() {
+        return {
             // Handshake
-            case 'connected':
-                // Clear previous chat content — server replays everything on reconnect
-                this.chatContainer.innerHTML = '';
-                this.addLoadingIndicator('Preparing your adventure...');
-                this.send({ type: 'start' });
-                break;
+            'connected':         ()    => this.handleConnected(),
             // Creation flow
-            case 'creation_phase':
-                this.handleCreationPhase(msg);
-                break;
-            case 'inspire-create':
-                this.handleInspireCreation(msg);
-                break;
-            case 'creation_response':
-                this.handleCreationResponse(msg);
-                break;
-            case 'creation_resume':
-                this.handleCreationResume(msg);
-                break;
-            case 'creation_ready':
-                this.injectStatsWidget(msg.character);
-                // Server is re-engaging the guide after resume — show loading
-                this.addLoadingIndicator();
-                break;
-            case 'play_resume':
-                this.handlePlayResume(msg);
-                break;
+            'creation_phase':    (msg) => this.handleCreationPhase(msg),
+            'inspire-create':    (msg) => this.handleInspireCreation(msg),
+            'creation_response': (msg) => this.handleCreationResponse(msg),
+            'creation_resume':   (msg) => this.handleCreationResume(msg),
+            'creation_ready':    (msg) => this.handleCreationReady(msg),
+            'play_resume':       (msg) => this.handlePlayResume(msg),
             // Gameplay flow
-            case 'narrative':
-                this.handleNarrative(msg);
-                break;
-            case 'move_outcome':
-                this.handleMoveOutcome(msg);
-                break;
-            case 'oracle_result':
-                this.handleOracleResult(msg);
-                break;
-            case 'character_update':
-                this.handleCharacterUpdate(msg);
-                break;
-            case 'loading':
-                this.addLoadingIndicator();
-                break;
-            case 'ready':
+            'narrative':         (msg) => this.handleNarrative(msg),
+            'move_outcome':      (msg) => this.handleMoveOutcome(msg),
+            'oracle_result':     (msg) => this.handleOracleResult(msg),
+            'character_update':  (msg) => this.handleCharacterUpdate(msg),
+            'loading':           ()    => this.addLoadingIndicator(),
+            'ready':             ()    => {
                 this.removeLoadingIndicator();
                 this.enableInput();
-                break;
-            case 'backtrack_done':
-                this.handleBacktrackDone();
-                break;
-            case 'edit_done':
-                this.handleEditDone(msg);
-                break;
-            case 'error':
+            },
+            'backtrack_done':    ()    => this.handleBacktrackDone(),
+            'edit_done':         (msg) => this.handleEditDone(msg),
+            'error':             (msg) => {
                 this.removeLoadingIndicator();
-                this.addSystemMessage('Error: ' + msg.message);
+                this.addSystemMessage('An error occurred: ' + msg.message);
                 this.enableInput();
-                break;
+            },
+        };
+    }
+
+    handleConnected() {
+        // Clear previous chat content — server replays everything on reconnect
+        this.chatContainer.innerHTML = '';
+        this.addLoadingIndicator('Preparing your adventure...');
+        this.send({ type: 'start' });
+    }
+
+    handleCreationReady(msg) {
+        this.injectStatsWidget(msg.character);
+        // Server is re-engaging the guide after resume — show loading
+        this.addLoadingIndicator();
+    }
+
+    handleMessage(msg) {
+        const handler = this._messageHandlers[msg.type];
+        if (!handler) {
+            console.error('Unknown message type:', msg.type);
+            this.enableInput();
+            return;
         }
+        handler(msg);
     }
 
     send(obj) {
