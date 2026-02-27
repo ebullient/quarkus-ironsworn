@@ -9,17 +9,29 @@
 
 {#mainClass}class="reference"{/mainClass}
 {#content}
-{#each moves}
-<h2>{it.name.value}</h2>
-{util:mdToHtml(it.description)}
-{util:mdToHtml(it.summary)}
+<ul>
+{#for entry in moves.entrySet}
+<li><a href="#{entry.key}">{entry.value.name.value}</a></li>
+{/for}
+</ul>
 
-{#for e in it.contents.entrySet}
+{#for entry in moves.entrySet}
+<h2 id="{entry.key}">{entry.value.name.value}</h2>
+{util:mdToHtml(entry.value.description)}
+{util:mdToHtml(entry.value.summary)}
+
+<ul>
+{#for e in entry.value.contents.entrySet}
+<li><a href="#{e.key}">{e.value.name.value}</a></li>
+{/for}
+</ul>
+
+{#for e in entry.value.contents.entrySet}
 <h3 id="{e.key}">{e.value.name.value}</h3>
 
 {util:mdToHtml(e.value.text)}
 {/for}
 
-{/each}
+{/for}
 {/content}
 {/include}

@@ -1,12 +1,13 @@
 package dev.ebullient.ironsworn.web;
 
-import java.util.Collection;
+import java.util.Map;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 
+import Datasworn.AtlasEntry;
 import Datasworn.MoveCategory;
 import Datasworn.OracleTablesCollection;
 import dev.ebullient.ironsworn.DataswornService;
@@ -21,9 +22,11 @@ public class Reference {
     public static class Templates {
         public static native TemplateInstance index();
 
-        public static native TemplateInstance moves(Collection<MoveCategory> moves);
+        public static native TemplateInstance atlas(Map<String, AtlasEntry> locations);
 
-        public static native TemplateInstance oracles(Collection<OracleTablesCollection> collection);
+        public static native TemplateInstance moves(Map<String, MoveCategory> moves);
+
+        public static native TemplateInstance oracles(Map<String, OracleTablesCollection> oracles);
     }
 
     @Inject
@@ -36,14 +39,20 @@ public class Reference {
     }
 
     @GET
+    @Path("/atlas")
+    public TemplateInstance atlas() {
+        return Templates.atlas(data.getAtlas());
+    }
+
+    @GET
     @Path("/moves")
     public TemplateInstance moves() {
-        return Templates.moves(data.getMoves().values());
+        return Templates.moves(data.getMoves());
     }
 
     @GET
     @Path("/oracles")
     public TemplateInstance oracles() {
-        return Templates.oracles(data.getOracles().values());
+        return Templates.oracles(data.getOracles());
     }
 }

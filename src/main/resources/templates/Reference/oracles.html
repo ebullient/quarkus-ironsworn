@@ -9,20 +9,42 @@
 
 {#mainClass}class="reference"{/mainClass}
 {#content}
-{#each collection}
-<h2>{it.name.value}</h2>
-{util:mdToHtml(it.description)}
-{util:mdToHtml(it.summary)}
-
-{#for table in it.contents.values}
-<h3>{table.name.value}</h3>
-{util:mdToHtml(table.description)}
-{util:mdToHtml(table.summary)}
-{#include Reference/rollableTable table=table /}
+<ul>
+{#for entry in oracles.entrySet}
+<li><a href="#{entry.key}">{entry.value.name.value}</a></li>
 {/for}
+</ul>
 
-{#for nested in it.collections}
-<h3>{nested.value.name.value}</h3>
+{#for entry in oracles.entrySet}
+<h2 id="entry.key">{entry.value.name.value}</h2>
+{util:mdToHtml(entry.value.description)}
+{util:mdToHtml(entry.value.summary)}
+
+<ul>
+{#if entry.value.contents}
+{#for table in entry.value.contents.entrySet}
+<li><a href="#{table.key}">{table.value.name.value}</a></li>
+{/for}
+{/if}
+{#if entry.value.collections}
+{#for nested in entry.value.collections.entrySet}
+<li><a href="#{nested.key}">{nested.value.name.value}</a></li>
+{/for}
+{/if}
+</ul>
+
+{#if entry.value.contents}
+{#for table in entry.value.contents.entrySet}
+<h3 id="{table.key}">{table.value.name.value}</h3>
+{util:mdToHtml(table.value.description)}
+{util:mdToHtml(table.value.summary)}
+{#include Reference/rollableTable table=table.value /}
+{/for}
+{/if}
+
+{#if entry.value.collections}
+{#for nested in entry.value.collections.entrySet}
+<h3 id="{nested.key}">{nested.value.name.value}</h3>
 {util:mdToHtml(nested.value.description)}
 {util:mdToHtml(nested.value.summary)}
 {#each nested.value.rollableTable}
@@ -31,7 +53,8 @@
 {util:mdToHtml(it.summary)}
 {#include Reference/rollableTable table=it /}
 <br />
-{/each}{#each nested.value.columnText}
+{/each}
+{#each nested.value.columnText}
 <h4>{it.name.value}</h4>
 {util:mdToHtml(it.summary)}
 {#if it.match}{util:mdToHtml(it.match.text)}{/if}
@@ -48,7 +71,7 @@
 <br />
 {/each}
 {/for}
-
-{/each}
+{/if}
+{/for}
 {/content}
 {/include}

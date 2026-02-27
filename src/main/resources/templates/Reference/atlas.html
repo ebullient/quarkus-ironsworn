@@ -1,0 +1,34 @@
+{#include base}
+{#title}Ironsworn Atlas{/title}
+
+{#stylesheets}
+<link rel="stylesheet" href="/reference.css">
+{/stylesheets}
+
+{#header-title}Ironsworn Atlas{/header-title}
+
+{#mainClass}class="reference"{/mainClass}
+{#content}
+<ul>
+{#for entry in locations.entrySet}
+<li><a href="#{entry.key}">{entry.value.name.value}</a></li>
+{/for}
+</ul>
+
+{#for entry in locations.entrySet}
+<h2 id="{entry.key}">{entry.value.name.value}</h2>
+{util:mdToHtml(entry.value.description)}
+
+<h3 id="features">Features</h3>
+<ul>
+{#for feature in entry.value.features}
+<li>{util:inline(util:mdToHtml(feature))}</li>
+{/for}
+</ul>
+
+<h3 id="quest_starter">Quest Starter</h3>
+{util:mdToHtml(entry.value.questStarter)}
+
+{/for}
+{/content}
+{/include}

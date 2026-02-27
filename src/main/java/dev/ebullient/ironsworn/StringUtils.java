@@ -75,10 +75,16 @@ public class StringUtils {
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 
+    // id:classic/atlas/ironlands/barrier_islands
+    private static final Pattern ATLAS_ID = Pattern.compile("id:classic/atlas/ironlands/([^)]+)");
     // id:classic/moves/{category}/{move} → /reference/moves/{move}
     private static final Pattern MOVE_ID = Pattern.compile("id:classic/moves/[^/]+/([^)]+)");
     // id:classic/oracles/{path...} → /reference/oracles/{path...}
     private static final Pattern ORACLE_ID = Pattern.compile("id:classic/oracles/([^)]+)");
+
+    public static RawString inline(RawString string) {
+        return new RawString(string.getValue().replaceAll("</?p>", ""));
+    }
 
     public static RawString mdToHtml(String markdown) {
         if (markdown == null) {
@@ -88,6 +94,7 @@ public class StringUtils {
         MarkdownAugmenter augmenter = Arc.container().instance(MarkdownAugmenter.class).get();
         var text = MOVE_ID.matcher(markdown).replaceAll("/reference/moves#$1");
         text = ORACLE_ID.matcher(text).replaceAll("/reference/oracles#$1");
+        text = ATLAS_ID.matcher(text).replaceAll("/reference/atlas#$1");
 
         return new RawString(augmenter.markdownToHtml(text));
     }

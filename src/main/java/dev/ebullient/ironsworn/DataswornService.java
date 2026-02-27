@@ -18,6 +18,7 @@ import org.yaml.snakeyaml.Yaml;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import Datasworn.AtlasEntry;
 import Datasworn.MoveCategory;
 import Datasworn.OracleTablesCollection;
 import Datasworn.RulesPackageRuleset;
@@ -33,6 +34,7 @@ public class DataswornService {
 
     private final ObjectMapper jsonMapper;
     private final Yaml yaml;
+    private final Map<String, AtlasEntry> locations = new LinkedHashMap<>();
     private final Map<String, MoveCategory> moves = new LinkedHashMap<>();
     private final Map<String, OracleTablesCollection> oracles = new LinkedHashMap<>();
 
@@ -44,10 +46,30 @@ public class DataswornService {
         loaderOptions.setMaxAliasesForCollections(Integer.MAX_VALUE);
         yaml = new Yaml(loaderOptions);
 
+        loadAtlas();
         loadMoves();
         loadOracles();
 
         log.infof("Loaded %d move categories and %d oracle collections", moves.size(), oracles.size());
+    }
+
+    private void loadAtlas() {
+        try (InputStream is = Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream("rules/atlas.yaml")) {
+            if (is == null) {
+                log.warn("rules/atlas.yaml not found on classpath");
+                return;
+            }
+            RulesPackageRuleset ruleset = loadYaml(is, RulesPackageRuleset.class);
+            if (ruleset.getAtlas() != null) {
+                var collection = ruleset.getAtlas().get("ironlands");
+                if (collection != null) {
+                    locations.putAll(collection.getContents());
+                }
+            }
+        } catch (Exception e) {
+            log.errorf(e, "Failed to load moves.yaml: %s", e.getMessage());
+        }
     }
 
     private void loadMoves() {
@@ -101,6 +123,10 @@ public class DataswornService {
     private <T> T loadYaml(Object yamlInput, Class<T> type) {
         Object raw = (yamlInput instanceof InputStream is) ? yaml.load(is) : yaml.load((String) yamlInput);
         return jsonMapper.convertValue(raw, type);
+    }
+
+    public Map<String, AtlasEntry> getAtlas() {
+        return locations;
     }
 
     public Map<String, MoveCategory> getMoves() {
