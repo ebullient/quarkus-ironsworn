@@ -576,7 +576,7 @@ class PlayInterface {
     handleOracleResult(msg) {
         const r = msg.result;
         this.addMechanicalMessage(
-            '<strong>Oracle</strong> (' + r.tableName + '): <strong>' + r.resultText + '</strong> <span class="roll-detail">[' + r.roll + ']</span>',
+            '<strong>Oracle</strong> (' + r.tableName + '): <strong>' + r.htmlResultText + '</strong> <span class="roll-detail">[' + r.roll + ']</span>',
             'oracle'
         );
     }

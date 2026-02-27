@@ -129,7 +129,7 @@
                             data-move-name="{move.value.name.value}"
                             data-roll-type="{move.value.rollType}"
                             {#if move.value.rollType eq 'no_roll'}disabled{/if}>
-                        {move.value.name.value}
+                        {util:mdToHtml(move.value.name.value, true)}
                     </button>
                     {/for}
                     {/if}
@@ -147,7 +147,7 @@
                     <button class="oracle-btn"
                             data-collection="{entry.key}"
                             data-table="{table.key}">
-                        {table.value.name.value}
+                        {util:mdToHtml(table.value.name.value, true)}
                     </button>
                     {/for}
                     {/if}

@@ -82,11 +82,11 @@ public class StringUtils {
     // id:classic/oracles/{path...} → /reference/oracles/{path...}
     private static final Pattern ORACLE_ID = Pattern.compile("id:classic/oracles/([^)]+)");
 
-    public static RawString inline(RawString string) {
-        return new RawString(string.getValue().replaceAll("</?p>", ""));
+    public static RawString mdToHtml(String markdown) {
+        return mdToHtml(markdown, false);
     }
 
-    public static RawString mdToHtml(String markdown) {
+    public static RawString mdToHtml(String markdown, boolean inline) {
         if (markdown == null) {
             return null;
         }
@@ -96,13 +96,22 @@ public class StringUtils {
         text = ORACLE_ID.matcher(text).replaceAll("/reference/oracles#$1");
         text = ATLAS_ID.matcher(text).replaceAll("/reference/atlas#$1");
 
-        return new RawString(augmenter.markdownToHtml(text));
+        var md = augmenter.markdownToHtml(text);
+        if (inline) {
+            md = md.replaceAll("</?p>", "");
+        }
+
+        return new RawString(md);
     }
 
     public static RawString mdToHtml(MarkdownString markdown) {
+        return mdToHtml(markdown, false);
+    }
+
+    public static RawString mdToHtml(MarkdownString markdown, boolean inline) {
         if (markdown == null) {
             return null;
         }
-        return mdToHtml(markdown.getValue());
+        return mdToHtml(markdown.getValue(), inline);
     }
 }
