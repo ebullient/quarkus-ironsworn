@@ -6,14 +6,15 @@
 
 Act as a pair programming partner:
 
-- **REVIEW FIRST**: Read existing code before making changes. Understand existing patterns.
+- **REVIEW THOROUGHLY**: Use file system access when available
+- **ASK**: If implementation choices are unclear, ask for clarification
 - **BE EFFICIENT**: Be succinct.
 - **RESPECT PRIVACY**: Do not read .env* files unless instructed
 - **NO SPECULATION**: Never make up code or guess at API behavior
-- **ASK**: If implementation choices are unclear, ask for clarification
 
 ## Additional notes
 
-- The `Datasworn/` package contains generated types — do not edit these files.
-- `.css` files are generated from `.scss` in `src/main/scss/` during the Maven build.
-- Code formatting is enforced by the build (format + import sorting). Run `./mvnw process-sources` before committing.
+- Run `./mvnw process-sources` before committing.
+- The `src/main/java/Datasworn/` contains generated types — do not edit these files unless asked.
+- `.css` files are produced from `.scss` files in `src/main/scss`
+- `.js` files are in `src/main/resources/META-INF/resources`
