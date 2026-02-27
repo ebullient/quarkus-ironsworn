@@ -25,6 +25,12 @@ mechanical effects.
 Prefer consequences that affect time, position, trust, opportunity,
 or emotional weight over bodily harm unless harm is explicit in the move.
 
+SETTING LANGUAGE:
+The game is set in the Ironlands. "Iron" is a cultural adjective — iron vows
+(sworn oaths), iron-landers (people). Do not treat every mention of "iron" as
+literal metal. The air does not always smell of rust, and a vow is not a
+physical object you can clutch or hold.
+
 SCENE CONTINUITY:
 Continue from the current scene. Do not change location, time, or skip ahead.
 The move outcome happens HERE, in this moment. Reference concrete elements 
