@@ -181,10 +181,8 @@ class PlayInterface {
         const widget = document.createElement('div');
         widget.className = 'message creation-widget inspiration-text';
         this.chatContainer.appendChild(widget);
-        this.typewriter(widget, msg.text || '', 30, () => {
-            // After typewriter finishes, inject the stats widget
-            this.injectStatsWidget();
-        });
+        widget.textContent = msg.text || '';
+        this.injectStatsWidget();
         this.scrollToBottom();
     }
 
@@ -409,21 +407,6 @@ class PlayInterface {
 
     escapeHtml(str) {
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    typewriter(el, text, speed, onComplete) {
-        el.textContent = '';
-        let i = 0;
-        function tick() {
-            if (i < text.length) {
-                el.textContent += text.charAt(i);
-                i++;
-                setTimeout(tick, speed);
-            } else if (onComplete) {
-                onComplete();
-            }
-        }
-        tick();
     }
 
     // --- Input ---
