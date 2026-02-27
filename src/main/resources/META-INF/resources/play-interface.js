@@ -66,6 +66,8 @@ class PlayInterface {
         switch (msg.type) {
             // Handshake
             case 'connected':
+                // Clear previous chat content — server replays everything on reconnect
+                this.chatContainer.innerHTML = '';
                 this.addLoadingIndicator('Preparing your adventure...');
                 this.send({ type: 'start' });
                 break;
