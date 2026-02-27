@@ -1,9 +1,12 @@
 package dev.ebullient.ironsworn;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkus.test.junit.QuarkusTest;
+
+@QuarkusTest
 class IronswornMechanicsTest {
 
     @Test
