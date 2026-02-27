@@ -190,8 +190,22 @@ public class StoryMemoryIndexer {
             List<TextSegment> segments = new ArrayList<>();
             for (int i = firstDiff; i < exchanges.size(); i++) {
                 JournalExchange exchange = exchanges.get(i);
+                // Strip mechanical lines (oracle rolls, move results) — only
+                // embed the narrative content for better semantic matching.
+                String narrative = stripNonNarrative(exchange.content());
+                if (narrative.isBlank()) {
+                    continue;
+                }
                 ids.add(embeddingId(campaignId, i));
-                segments.add(TextSegment.from(exchange.content(), metadata(campaignId, i)));
+                segments.add(TextSegment.from(narrative, metadata(campaignId, i)));
+            }
+
+            Log.infof("Indexing %s: %d narrative segments from %d exchanges (firstDiff=%d)",
+                    campaignId, segments.size(), exchanges.size(), firstDiff);
+            if (segments.isEmpty()) {
+                Log.warnf("All exchanges were purely mechanical for %s — nothing to embed", campaignId);
+                writeState(statePath, new IndexState(lastModified, newHashes));
+                return;
             }
 
             List<Embedding> embeddings = embeddingModel.embedAll(segments).content();
@@ -205,7 +219,9 @@ public class StoryMemoryIndexer {
                         campaignId, embeddings.size(), segments.size(), n);
             }
 
+            Log.infof("Storing %d embeddings for %s", n, campaignId);
             embeddingStore.addAll(ids.subList(0, n), embeddings.subList(0, n), segments.subList(0, n));
+            Log.infof("Successfully stored embeddings for %s", campaignId);
             writeState(statePath, new IndexState(lastModified, newHashes));
         }
     }
@@ -308,6 +324,19 @@ public class StoryMemoryIndexer {
         return new Metadata()
                 .put("campaignId", campaignId)
                 .put("exchangeIndex", exchangeIndex);
+    }
+
+    /** Return only narrative content, stripping mechanical entries and player markup. */
+    private static String stripNonNarrative(String text) {
+        return text.lines()
+                .filter(line -> {
+                    String trimmed = line.trim();
+                    return !JournalParser.isMechanicalEntry(trimmed)
+                            && !JournalParser.isPlayerEntry(trimmed)
+                            && !JournalParser.isPlayerEntryEnd(trimmed);
+                })
+                .collect(java.util.stream.Collectors.joining("\n"))
+                .trim();
     }
 
     private static String sha256(String text) {
