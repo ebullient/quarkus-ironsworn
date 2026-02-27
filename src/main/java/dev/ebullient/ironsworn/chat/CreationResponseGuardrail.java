@@ -21,8 +21,12 @@ public class CreationResponseGuardrail implements OutputGuardrail {
         try {
             CreationResponse response = objectMapper.readValue(responseFromLLM.text(), CreationResponse.class);
             if (response.message() == null || response.message().isBlank()) {
-                return reprompt("Missing message",
-                        "The 'message' field must be present and non-empty.");
+                return reprompt("The 'message' field must be present and non-empty.",
+                        """
+                                Return a valid JSON object with fields: message (string), suggestedVow (string).
+                                The message field MUST be non-empty markdown text (1-2 paragraphs).
+                                """
+                                .trim());
             }
             return OutputGuardrailResult.successWith(responseFromLLM.text(), response);
         } catch (JsonProcessingException e) {
