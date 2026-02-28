@@ -23,6 +23,7 @@ import dev.ebullient.ironsworn.memory.StoryMemoryService;
 import dev.ebullient.ironsworn.model.CharacterSheet;
 import dev.ebullient.ironsworn.model.OracleResult;
 import dev.ebullient.ironsworn.model.Outcome;
+import dev.ebullient.ironsworn.model.Rank;
 import dev.ebullient.ironsworn.model.Vow;
 import io.quarkus.logging.Log;
 import io.quarkus.websockets.next.OnClose;
@@ -172,11 +173,6 @@ public class PlayWebSocket {
                 // Creation flow (delegated to CreationEngine)
                 case "creation_chat" -> creationEngine.handleChat(msg);
                 case "creation_inspire" -> creationEngine.handleInspire();
-                case "finalize_creation" -> {
-                    String result = creationEngine.handleFinalize(msg);
-                    creationEngine = null;
-                    yield result;
-                }
                 // Gameplay flow
                 case "narrative" -> handleNarrative(msg);
                 case "move_result" -> handleMoveResult(msg);
@@ -305,18 +301,41 @@ public class PlayWebSocket {
         String outcomeStr = msg.path("outcome").asText();
         Outcome outcome = Outcome.valueOf(outcomeStr);
 
+        // If this move carries vow data, persist the vow on the character sheet
+        String vowDescription = msg.path("vowDescription").asText("").trim();
+        String vowRank = msg.path("vowRank").asText("").trim();
+        if (!vowDescription.isEmpty() && !vowRank.isEmpty()) {
+            CharacterSheet character = journal.readCharacter(campaignId);
+            var updatedVows = new ArrayList<>(character.vows());
+            updatedVows.add(new Vow(vowDescription, Rank.valueOf(vowRank), 0));
+            CharacterSheet updated = new CharacterSheet(
+                    character.name(), character.edge(), character.heart(), character.iron(),
+                    character.shadow(), character.wits(), character.health(), character.spirit(),
+                    character.supply(), character.momentum(), updatedVows);
+            journal.updateCharacter(campaignId, updated);
+
+            // Notify client so sidebar vows list updates
+            connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
+                    "type", "character_update",
+                    "character", updated)));
+        }
+
         // Journal the player's action description (if provided) before the roll
         String playerAction = msg.path("playerAction").asText("").trim();
         if (!playerAction.isEmpty()) {
             journal.appendNarrative(campaignId, formatPlayerInput(playerAction));
         }
 
-        // Journal the roll
+        // Journal the roll (include vow description if this is a Swear an Iron Vow)
         String moveName = moveKey.replace("_", " ");
         moveName = moveName.substring(0, 1).toUpperCase() + moveName.substring(1);
-        journal.appendMechanical(campaignId,
-                "**%s** (+%s): Action %d, Challenge %d|%d → **%s**".formatted(
-                        moveName, stat, actionScore, challenge1, challenge2, outcome.display()));
+        String mechanicalEntry = !vowDescription.isEmpty()
+                ? "**%s**: \"%s\" (%s) — +%s: Action %d, Challenge %d|%d → **%s**".formatted(
+                        moveName, vowDescription, vowRank.toLowerCase().replace("_", " "),
+                        stat, actionScore, challenge1, challenge2, outcome.display())
+                : "**%s** (+%s): Action %d, Challenge %d|%d → **%s**".formatted(
+                        moveName, stat, actionScore, challenge1, challenge2, outcome.display());
+        journal.appendMechanical(campaignId, mechanicalEntry);
 
         // Look up the rules text for this outcome
         String moveOutcomeText = mechanics.getMoveOutcomeText(categoryKey, moveKey, outcome);
@@ -361,6 +380,21 @@ public class PlayWebSocket {
                     JournalParser.sanitizeNarrative(response.narrative()));
 
             journal.appendNarrative(campaignId, narrative);
+
+            // If this vow roll ends the creation phase, send narrative first, then finalize
+            if (!vowDescription.isEmpty() && creationEngine != null) {
+                connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
+                        "type", "narrative",
+                        "narrative", narrative,
+                        "narrativeHtml", prettify.markdownToHtml(narrative),
+                        "blocks", blocksForNarrative(narrative),
+                        "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
+                        "location", response.location() != null ? response.location() : "")));
+                creationEngine = null;
+                return objectMapper.writeValueAsString(Map.of(
+                        "type", "creation_phase",
+                        "phase", "active"));
+            }
 
             return objectMapper.writeValueAsString(Map.of(
                     "type", "narrative",
@@ -471,10 +505,6 @@ public class PlayWebSocket {
 
     private boolean endsWithPlayerEntry(String journalContent) {
         return JournalParser.endsWithPlayerEntry(journalContent);
-    }
-
-    private int countExchanges(String journalContext) {
-        return JournalParser.countExchanges(journalContext);
     }
 
     private List<JournalParser.JournalBlock> blocksForNarrative(String narrative) {

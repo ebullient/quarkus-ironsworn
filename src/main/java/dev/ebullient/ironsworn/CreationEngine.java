@@ -1,7 +1,5 @@
 package dev.ebullient.ironsworn;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -13,8 +11,6 @@ import dev.ebullient.ironsworn.chat.CreationResponse;
 import dev.ebullient.ironsworn.chat.MarkdownAugmenter;
 import dev.ebullient.ironsworn.chat.PlayMemoryProvider;
 import dev.ebullient.ironsworn.model.CharacterSheet;
-import dev.ebullient.ironsworn.model.Rank;
-import dev.ebullient.ironsworn.model.Vow;
 import io.quarkus.websockets.next.WebSocketConnection;
 
 /**
@@ -142,32 +138,6 @@ public class CreationEngine {
         }
     }
 
-    /**
-     * Handle finalizing creation — save character and transition to active play.
-     */
-    public String handleFinalize(JsonNode msg) throws Exception {
-        JsonNode charNode = msg.path("character");
-        CharacterSheet character = new CharacterSheet(
-                journal.readCharacter(campaignId).name(),
-                charNode.path("edge").asInt(1),
-                charNode.path("heart").asInt(1),
-                charNode.path("iron").asInt(1),
-                charNode.path("shadow").asInt(1),
-                charNode.path("wits").asInt(1),
-                5, 5, 5, 2,
-                parseVows(charNode));
-
-        journal.updateCharacter(campaignId, character);
-
-        connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                "type", "character_update",
-                "character", character)));
-
-        return objectMapper.writeValueAsString(Map.of(
-                "type", "creation_phase",
-                "phase", "active"));
-    }
-
     // --- Private helpers ---
 
     private String callGuide(String playerInput) throws Exception {
@@ -223,19 +193,6 @@ public class CreationEngine {
         return "";
     }
 
-    private List<Vow> parseVows(JsonNode charNode) {
-        List<Vow> vows = new ArrayList<>();
-        if (charNode.has("vows") && charNode.get("vows").isArray()) {
-            for (JsonNode vowNode : charNode.get("vows")) {
-                vows.add(new Vow(
-                        vowNode.path("description").asText(),
-                        Rank.valueOf(vowNode.path("rank").asText("DANGEROUS")),
-                        vowNode.path("progress").asInt(0)));
-            }
-        }
-        return vows;
-    }
-
     private String formatPlayerInput(String text) {
         return "<player>\n" + text.strip() + "\n</player>";
     }
@@ -251,10 +208,16 @@ public class CreationEngine {
     }
 
     private String creationResponseJson(String message, String suggestedVow) throws Exception {
+        // Guard against LLM returning literal "null" or whitespace-only vow text
+        String vow = suggestedVow != null ? suggestedVow.strip() : "";
+        if ("null".equalsIgnoreCase(vow)) {
+            vow = "";
+        }
         var map = Map.of(
                 "type", "creation_response",
                 "message", message,
-                "suggestedVow", suggestedVow != null ? suggestedVow : "");
+                "messageHtml", prettify.markdownToHtml(message),
+                "suggestedVow", vow);
         return objectMapper.writeValueAsString(map);
     }
 

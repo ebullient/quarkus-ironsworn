@@ -102,6 +102,12 @@ class PlayInterface {
     }
 
     handleCreationReady(msg) {
+        // Persist character data so move rolls can work during creation resume
+        // (creation_ready is sent before any character_update messages).
+        if (msg.character) {
+            this.character = msg.character;
+            this.updateCharacterDisplay();
+        }
         this.injectStatsWidget(msg.character);
         // Server is re-engaging the guide after resume — show loading
         this.addLoadingIndicator();
@@ -290,7 +296,7 @@ class PlayInterface {
     handleCreationResponse(msg) {
         this.removeLoadingIndicator();
         // Add guide's message to chat
-        this.addCreationGuideMessage(msg.message);
+        this.addCreationGuideMessage(msg.message, msg.messageHtml);
 
         if (msg.suggestedVow) {
             this.injectVowWidget(msg.suggestedVow);
@@ -328,21 +334,26 @@ class PlayInterface {
         this.scrollToBottom();
     }
 
-    addCreationGuideMessage(text) {
+    addCreationGuideMessage(text, html) {
         const div = document.createElement('div');
         div.className = 'message assistant creation-widget';
-        div.textContent = text;
+        if (html) {
+            div.innerHTML = html;
+        } else {
+            div.textContent = text;
+        }
         this.chatContainer.appendChild(div);
         this.scrollToBottom();
     }
 
-    injectVowWidget(suggestedVow) {
+    injectVowWidget(suggestedVow, context) {
+        const vowContext = context || (this.creationMode ? 'creation' : 'active');
         const widget = document.createElement('div');
-        widget.className = 'creation-widget vow-widget';
+        widget.className = (vowContext === 'creation' ? 'creation-widget ' : '') + 'vow-widget';
         widget.innerHTML =
-            '<div class="vow-widget-header">Your Vow</div>' +
+            '<div class="vow-widget-header">Swear an Iron Vow</div>' +
             '<div class="vow-editor">' +
-            '  <input type="text" id="vow-text" value="' + this.escapeAttr(suggestedVow) + '" placeholder="e.g., Find the truth behind the iron curse">' +
+            '  <input type="text" id="vow-text" value="' + this.escapeAttr(suggestedVow || '') + '" placeholder="e.g., Find the truth behind the iron curse">' +
             '  <div class="vow-rank-row">' +
             '    <label for="vow-rank">Rank</label>' +
             '    <select id="vow-rank">' +
@@ -353,43 +364,62 @@ class PlayInterface {
             '      <option value="EPIC">Epic</option>' +
             '    </select>' +
             '  </div>' +
-            '  <button id="begin-journey-btn" class="btn-primary">Begin Journey</button>' +
+            '  <button id="swear-vow-btn" class="btn-primary">Swear an Iron Vow</button>' +
             '</div>';
         this.chatContainer.appendChild(widget);
         this.scrollToBottom();
 
-        document.getElementById('begin-journey-btn').addEventListener('click', () => {
-            this.finalizeCreation();
+        document.getElementById('swear-vow-btn').addEventListener('click', () => {
+            const vowText = document.getElementById('vow-text').value.trim();
+            if (!vowText) {
+                document.getElementById('vow-text').focus();
+                return;
+            }
+            const vowRank = document.getElementById('vow-rank').value;
+
+            // Store pending vow for inclusion in the roll message
+            this.pendingVow = { description: vowText, rank: vowRank };
+            this.pendingVowContext = vowContext;
+
+            // Remove the vow widget
+            widget.remove();
+
+            // Activate move mode for Swear an Iron Vow (+heart)
+            this.pendingMove = {
+                category: 'quest',
+                key: 'swear_an_iron_vow',
+                name: 'Swear an Iron Vow'
+            };
+            this.selectedStat = null;
+
+            this.rollMoveNameEl.textContent = this.pendingMove.name;
+            this.moveBadge.classList.remove('hidden');
+            this.rollControls.classList.remove('hidden');
+            this.sendBtn.classList.add('hidden');
+            if (this.inspireBtn) {
+                this.inspireBtn.classList.add('hidden');
+            }
+            this.rollBtn.disabled = false;
+
+            this.inputContainer.classList.remove('hidden');
+            this.inputContainer.classList.add('move-mode');
+            document.getElementById('roll-stat-prompt').textContent = 'Select a stat';
+
+            // Pre-fill the oath text and make it read-only (already confirmed in the vow widget)
+            this.messageInput.disabled = false;
+            this.messageInput.value = vowText;
+            this.messageInput.readOnly = true;
+            this.messageInput.placeholder = 'Describe your oath...';
+
+            document.querySelectorAll('.stat-btn').forEach(b => b.classList.add('selectable'));
+            this.sidebar.classList.remove('open');
+
+            // Pre-select heart (the default stat for this move)
+            this.selectStat('heart');
         });
 
         // Hide the main input — vow widget has its own button
         this.inputContainer.classList.add('hidden');
-    }
-
-    finalizeCreation() {
-        const btn = document.getElementById('begin-journey-btn');
-        btn.disabled = true;
-        btn.textContent = 'Creating...';
-
-        const vowText = document.getElementById('vow-text').value.trim();
-        const vowRank = document.getElementById('vow-rank').value;
-
-        const character = {
-            edge: parseInt(document.getElementById('create-edge').value),
-            heart: parseInt(document.getElementById('create-heart').value),
-            iron: parseInt(document.getElementById('create-iron').value),
-            shadow: parseInt(document.getElementById('create-shadow').value),
-            wits: parseInt(document.getElementById('create-wits').value),
-            vows: []
-        };
-        if (vowText) {
-            character.vows = [{ description: vowText, rank: vowRank, progress: 0 }];
-        }
-
-        this.send({
-            type: 'finalize_creation',
-            character
-        });
     }
 
     escapeAttr(str) {
@@ -416,7 +446,38 @@ class PlayInterface {
         });
     }
 
+    tryHandleSlashCommand(rawText) {
+        if (rawText == null) return false;
+        let text = String(rawText);
+
+        // Normalize common copy/paste artifacts and non-ASCII slashes.
+        // (Some IMEs use the fullwidth slash "／", and some editors can introduce zero-width chars.)
+        text = text.replace(/^[\s\u200B\uFEFF]+/, '').replace(/^／/, '/');
+
+        if (!text.startsWith('/')) return false;
+
+        if (text === "/help") {
+            this.usage();
+            return true;
+        }
+
+        // Match "/vow text" (and same for "/swear").
+        // Note: require whitespace (or end) after the command to avoid matching "/vow-foo" or "/vow:".
+        const match = text.match(/^\/(vow|swear)(?:\s+|$)(.*)$/i);
+        if (!match) return false;
+
+        const args = (match[2] || '').trim();
+        this.messageInput.value = '';
+        this.messageInput.style.height = 'auto';
+        const context = this.creationMode ? 'creation' : 'active';
+        this.injectVowWidget(args, context);
+        return true;
+    }
+
     handleSend() {
+        // Slash commands — intercept before any server send
+        if (this.tryHandleSlashCommand(this.messageInput.value)) return;
+
         if (this.pendingMove) {
             // In move mode, Enter triggers the roll (if stat selected)
             if (this.selectedStat) {
@@ -424,6 +485,7 @@ class PlayInterface {
             }
             return;
         }
+
         if (this.creationMode) {
             this.sendCreationChat();
         } else {
@@ -432,7 +494,8 @@ class PlayInterface {
     }
 
     sendCreationChat() {
-        const text = this.messageInput.value.trim();
+        const rawText = this.messageInput.value;
+        const text = rawText.trim();
         if (!text) return;
         this.addUserMessage(text);
         this.messageInput.value = '';
@@ -443,7 +506,8 @@ class PlayInterface {
     }
 
     sendNarrative() {
-        const text = this.messageInput.value.trim();
+        const rawText = this.messageInput.value;
+        const text = rawText.trim();
         if (!text) return;
         this.addUserMessage(text);
         this.messageInput.value = '';
@@ -465,6 +529,12 @@ class PlayInterface {
     }
 
     // --- Messages ---
+
+    usage() {
+        this.addSystemMessage("<p>Welcome to the Ironlands.</p>");
+        this.addSystemMessage("<p>Above this chat area, you'll see your characters stats (edge, heart, iron, shadow, wits) and meters for tracking health, spirit, supply, and momentum.</p>");
+        this.addSystemMessage("<p>The following slash commands exist:</p><ul><li><code>/help</code></li><li><code>/vow &lt;define your iron vow&gt;</code></li></ul>");
+    }
 
     addUserMessage(text) {
         const div = document.createElement('div');
@@ -713,7 +783,16 @@ class PlayInterface {
     }
 
     executeRoll() {
-        if (!this.pendingMove || !this.selectedStat || !this.character) return;
+        console.log("executeRoll");
+        if (!this.pendingMove) return;
+        if (!this.selectedStat) {
+            this.addSystemMessage('Select a stat to roll.');
+            return;
+        }
+        if (!this.character) {
+            this.addSystemMessage('Character sheet not loaded yet. Try again in a moment.');
+            return;
+        }
 
         const statValue = this.character[this.selectedStat];
         const adds = parseInt(document.getElementById('roll-adds').value) || 0;
@@ -824,7 +903,7 @@ class PlayInterface {
         this.addLoadingIndicator();
 
         const playerAction = this.messageInput.value.trim();
-        this.send({
+        const msg = {
             type: 'move_result',
             categoryKey: this.pendingMove.category,
             moveKey: this.pendingMove.key,
@@ -837,14 +916,25 @@ class PlayInterface {
             actionScore,
             outcome,
             playerAction
-        });
+        };
 
+        // Attach vow data if this roll is part of a Swear an Iron Vow flow
+        if (this.pendingVow) {
+            msg.vowDescription = this.pendingVow.description;
+            msg.vowRank = this.pendingVow.rank;
+            this.pendingVow = null;
+            this.pendingVowContext = null;
+        }
+
+        this.send(msg);
         this.cancelMove();
     }
 
     cancelMove() {
         this.pendingMove = null;
         this.selectedStat = null;
+        this.pendingVow = null;
+        this.pendingVowContext = null;
         // Restore input container to normal mode
         this.moveBadge.classList.add('hidden');
         this.rollControls.classList.add('hidden');
@@ -858,6 +948,7 @@ class PlayInterface {
         this.manualDicePanel.classList.add('hidden');
         document.getElementById('roll-adds').value = 0;
         this.messageInput.value = '';
+        this.messageInput.readOnly = false;
         this.messageInput.style.height = 'auto';
         this.messageInput.placeholder = this.creationMode ? 'Tell the guide about your character...' : 'What do you do?';
         document.querySelectorAll('.stat-btn').forEach(b => {

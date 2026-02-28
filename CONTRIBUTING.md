@@ -50,7 +50,7 @@ The build enforces formatting via `formatter-maven-plugin` (Eclipse style from `
     - `/reference/moves` and `/reference/oracles` rules reference
 - **`api/`** — REST endpoints for chat, moves, oracles, and gameplay
 - Primary gameplay WebSocket at `/ws/play/{campaignId}` — handles the full play loop: character creation, narrative input, move results, oracle rolls, progress tracking.
-    - Client → server message types: `creation_chat`, `finalize_creation`, `narrative`, `move_result`, `inspire`, `oracle`, `oracle_manual`, `progress_mark`, `character_update`, `backtrack`.
+    - Client → server message types: `creation_chat`, `narrative`, `move_result` (with optional `vowDescription`/`vowRank`), `inspire`, `oracle`, `oracle_manual`, `progress_mark`, `character_update`, `backtrack`.
 
 ### AI/Chat Layer (Quarkus LangChain4j)
 
