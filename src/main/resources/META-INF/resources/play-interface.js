@@ -158,6 +158,7 @@ class PlayInterface {
         this.chatContainer.querySelectorAll('.stats-widget, .vow-widget').forEach(el => el.remove());
         // Reclassify creation messages as regular messages
         this.chatContainer.querySelectorAll('.creation-widget').forEach(el => el.classList.remove('creation-widget'));
+        this.addSystemMessage('Type <code>/help</code> for a guide to the interface and gameplay.');
         this.enableInput();
     }
 
@@ -165,8 +166,23 @@ class PlayInterface {
         this.removeLoadingIndicator();
         if (msg.phase === 'creation') {
             this.enterCreationMode();
-            // Fresh creation will call the LLM — show loading while waiting
-            this.addLoadingIndicator();
+            if (msg.characterName) {
+                // Fresh creation — show welcome greeting client-side
+                this.addSystemMessage(
+                    '<p>Welcome to the Ironlands. Let\u2019s explore who <strong>' +
+                    msg.characterName +
+                    '</strong> is, the truths about their world, and the vow that sets them adventuring.</p>' +
+                    '<p>Start by setting your character\u2019s stats, then roll some oracles ' +
+                    'or use your own words to determine the place and theme of this adventure. ' +
+                    'Type <code>/help</code> for more about the interface and gameplay.</p>'
+                );
+                this.injectStatsWidget();
+                this.enableInput();
+                this.messageInput.focus();
+            } else {
+                // Resume — server will send creation_resume + creation_ready
+                this.addLoadingIndicator();
+            }
         } else if (msg.phase === 'active') {
             this.exitCreationMode();
         }
@@ -197,7 +213,8 @@ class PlayInterface {
         widget.className = 'creation-widget stats-widget';
         widget.innerHTML =
             '<div class="stats-widget-header">Shape Your Character</div>' +
-            '<p class="stat-hint">Assign stats (1, 1, 2, 2, 3 — distribute among the five):</p>' +
+            '<p class="stat-hint">Assign stats (1, 1, 2, 2, 3 &mdash; distribute among the five). ' +
+            '<a href="/reference/rules#stats" target="_blank">What do stats mean?</a></p>' +
             '<div class="stat-inputs">' +
             '  <label>Edge <input type="number" id="create-edge" min="1" max="3" value="' + c.edge + '"></label>' +
             '  <label>Heart <input type="number" id="create-heart" min="1" max="3" value="' + c.heart + '"></label>' +
@@ -315,6 +332,7 @@ class PlayInterface {
     handlePlayResume(msg) {
         this.removeLoadingIndicator();
         this.appendBlocks((msg.blocks || []));
+        this.addSystemMessage('Type <code>/help</code> for a guide to the interface and gameplay.');
     }
 
     appendBlocks(blocks, extraClass) {
@@ -461,6 +479,11 @@ class PlayInterface {
             return true;
         }
 
+        if (text === "/status") {
+            this.status();
+            return true;
+        }
+
         // Match "/vow text" (and same for "/swear").
         // Note: require whitespace (or end) after the command to avoid matching "/vow-foo" or "/vow:".
         const match = text.match(/^\/(vow|swear)(?:\s+|$)(.*)$/i);
@@ -531,9 +554,73 @@ class PlayInterface {
     // --- Messages ---
 
     usage() {
-        this.addSystemMessage("<p>Welcome to the Ironlands.</p>");
-        this.addSystemMessage("<p>Above this chat area, you'll see your characters stats (edge, heart, iron, shadow, wits) and meters for tracking health, spirit, supply, and momentum.</p>");
-        this.addSystemMessage("<p>The following slash commands exist:</p><ul><li><code>/help</code></li><li><code>/vow &lt;define your iron vow&gt;</code></li></ul>");
+        this.addSystemMessage(
+            '<h4>Commands</h4>' +
+            '<ul>' +
+            '<li><code>/help</code> &mdash; this guide</li>' +
+            '<li><code>/status</code> &mdash; show character status</li>' +
+            '<li><code>/vow &lt;description&gt;</code> &mdash; swear an iron vow</li>' +
+            '</ul>' +
+            '<h4>The Interface</h4>' +
+            '<ul>' +
+            '<li><strong>Top bar</strong> (visible after character creation) &mdash; your stats (edge, heart, iron, shadow, wits) and meters (health, spirit, supply, momentum)</li>' +
+            '<li><strong>Sidebar</strong> (menu button on mobile) &mdash; moves, oracles, and your active vows</li>' +
+            '<li><strong>Chat</strong> &mdash; narrate your story, perform rolls, and ask for inspiration. Results appear alongside your narrative and become part of your journal.</li>' +
+            '<li><strong>Campaign Q&amp;A</strong> (linked from the page header) &mdash; query your story memory beyond what\u2019s shown in the chat window</li>' +
+            '</ul>' +
+            '<h4>How to Play</h4>' +
+            '<ul>' +
+            '<li>You are the storyteller. Describe what your character does, says, or declares to be true.</li>' +
+            '<li>Use <strong>moves</strong> from the sidebar when the fiction demands a roll.</li>' +
+            '<li><strong>Oracle</strong> rolls add randomness. The <strong>Inspire</strong> button asks the narrator to riff on an oracle &mdash; it adds color, not plot.</li>' +
+            '<li>Big decisions, new characters, and story turns are yours. The narrator makes the world vivid; you decide what happens in it.</li>' +
+            '</ul>'
+        );
+    }
+
+    status() {
+        const c = this.character;
+        let html = '';
+
+        // Phase
+        if (this.creationMode) {
+            html += '<p>Character creation: set your stats and swear your first iron vow.</p>';
+        } else {
+            html += '<p>Active play.</p>';
+        }
+
+        // Stats
+        const statsAllocated = c && (c.edge + c.heart + c.iron + c.shadow + c.wits) > 5;
+        html += '<h4><a href="/reference/rules#stats" target="_blank">Stats</a></h4>';
+        if (statsAllocated) {
+            html += '<ul>' +
+                '<li>Edge ' + c.edge + ' &middot; Heart ' + c.heart + ' &middot; Iron ' + c.iron +
+                ' &middot; Shadow ' + c.shadow + ' &middot; Wits ' + c.wits + '</li>' +
+                '</ul>';
+        } else {
+            html += '<p>Not yet allocated. See the link above for what each stat represents.</p>';
+        }
+
+        // Meters
+        if (c && !this.creationMode) {
+            html += '<h4><a href="/reference/rules#condition-meters" target="_blank">Meters</a></h4>' +
+                '<ul><li>Health ' + c.health + ' &middot; Spirit ' + c.spirit +
+                ' &middot; Supply ' + c.supply + ' &middot; Momentum ' + c.momentum + '</li></ul>';
+        }
+
+        // Vows
+        if (c && c.vows && c.vows.length > 0) {
+            html += '<h4>Vows</h4><ul>';
+            c.vows.forEach(vow => {
+                html += '<li>' + vow.description + ' (' + vow.rank.toLowerCase() +
+                    ', ' + Math.round(vow.progress * 10) + '% progress)</li>';
+            });
+            html += '</ul>';
+        } else if (!this.creationMode) {
+            html += '<h4>Vows</h4><p>No active vows.</p>';
+        }
+
+        this.addSystemMessage(html);
     }
 
     addUserMessage(text) {
@@ -561,10 +648,10 @@ class PlayInterface {
         this.scrollToBottom();
     }
 
-    addSystemMessage(text) {
+    addSystemMessage(html) {
         const div = document.createElement('div');
         div.className = 'message system';
-        div.textContent = text;
+        div.innerHTML = html;
         this.chatContainer.appendChild(div);
         this.scrollToBottom();
     }

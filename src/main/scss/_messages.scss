@@ -163,10 +163,31 @@
 
   // System messages
   &.system {
-    background: var(--color-info-bg);
+    background: var(--color-bg-elevated);
     align-self: center;
-    text-align: center;
+    text-align: left;
     max-width: 100%;
-    font-style: italic;
+    border-left: 3px solid var(--color-border-primary);
+    font-size: var(--font-size-sm);
+
+    h4 {
+      margin: var(--spacing-sm) 0 var(--spacing-xs);
+      font-size: var(--font-size-sm);
+    }
+
+    ul {
+      margin: 0;
+      padding-left: var(--spacing-lg);
+    }
+
+    li {
+      margin-bottom: var(--spacing-xs);
+    }
+
+    code {
+      background: var(--color-bg-overlay);
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+    }
   }
 }

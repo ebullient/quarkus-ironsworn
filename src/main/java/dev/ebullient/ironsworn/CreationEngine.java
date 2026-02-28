@@ -46,16 +46,20 @@ public class CreationEngine {
      * Handle the creation phase opening — either fresh creation or resume.
      */
     public String handleOpen() throws Exception {
-        // Send creation phase indicator
+        String existingJournal = journal.getRecentJournal(campaignId, 100);
+        if (existingJournal.isBlank()) {
+            // Fresh creation — client handles the welcome greeting
+            String name = journal.readCharacter(campaignId).name();
+            return objectMapper.writeValueAsString(Map.of(
+                    "type", "creation_phase",
+                    "phase", "creation",
+                    "characterName", name));
+        }
+
+        // Send creation phase indicator (resume path)
         connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
                 "type", "creation_phase",
                 "phase", "creation")));
-
-        String existingJournal = journal.getRecentJournal(campaignId, 100);
-        if (existingJournal.isBlank()) {
-            // Fresh creation — send fixed welcome greeting
-            return sendWelcomeGreeting();
-        }
 
         // Replay existing conversation to the client as pre-rendered blocks
         var blocks = JournalParser.parseToBlocks(existingJournal, prettify);
@@ -77,24 +81,6 @@ public class CreationEngine {
                 ? JournalParser.extractLastPlayerInput(existingJournal)
                 : "Continue the conversation based on what just happened.";
         return reengageGuide(character, lastPlayerInput);
-    }
-
-    /**
-     * Send the fixed welcome greeting (no LLM call).
-     */
-    private String sendWelcomeGreeting() throws Exception {
-        String name = journal.readCharacter(campaignId).name();
-        String greeting = """
-                Welcome to the Ironlands. Let's work together to explore who %s is,
-                the truths about their world, and determine the vow that sets them adventuring.
-
-                Start by setting your character's stats, then roll some oracles
-                or use your own words to determine the place and theme of this adventure.
-                """
-                .formatted(name);
-        return objectMapper.writeValueAsString(Map.of(
-                "type", "inspire-create",
-                "text", greeting));
     }
 
     /**
