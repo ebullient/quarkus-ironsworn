@@ -81,12 +81,30 @@
     }
   }
 
-  // Inline edit button — visible on hover
+  // Gutter action buttons (edit + delete) — visible on hover
 
-  .edit-btn {
+  .message-actions {
     position: absolute;
     top: var(--spacing-xs);
-    right: var(--spacing-xs);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  // Left-aligned messages: actions in gutter to the right
+  &.assistant .message-actions,
+  &.mechanical .message-actions {
+    right: calc(-2em - var(--spacing-xs));
+  }
+
+  // User messages: actions in gutter to the left
+  &.user .message-actions {
+    left: calc(-2em - var(--spacing-xs));
+  }
+
+  .action-btn {
     border: 1px solid var(--color-border-primary);
     border-radius: var(--border-radius-sm);
     background-color: var(--color-bg-base);
@@ -94,16 +112,25 @@
     cursor: pointer;
     font-size: var(--font-size-sm);
     padding: 2px 6px;
-    opacity: 0;
-    transition: opacity 0.15s ease;
+    line-height: 1;
 
     &:hover {
       color: var(--color-text-primary);
       border-color: var(--color-text-accent);
     }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &.confirming {
+      color: var(--color-text-accent);
+      border-color: var(--color-text-accent);
+    }
   }
 
-  &:hover .edit-btn {
+  &:hover .message-actions {
     opacity: 1;
   }
 

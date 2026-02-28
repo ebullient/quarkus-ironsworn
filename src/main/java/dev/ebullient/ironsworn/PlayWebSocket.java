@@ -181,8 +181,8 @@ public class PlayWebSocket {
                 case "oracle_manual" -> handleOracleManual(msg);
                 case "progress_mark" -> handleProgressMark(msg);
                 case "character_update" -> handleCharacterUpdate(msg);
-                case "backtrack" -> handleBacktrack(msg);
                 case "edit_block" -> handleEditBlock(msg);
+                case "delete_block" -> handleDeleteBlock(msg);
                 default -> errorJson("Unknown message type: " + type);
             };
         } catch (Exception e) {
@@ -468,16 +468,6 @@ public class PlayWebSocket {
                 "character", character));
     }
 
-    private String handleBacktrack(JsonNode msg) throws Exception {
-        int blockIndex = msg.path("blockIndex").asInt(-1);
-        if (blockIndex < 0) {
-            return errorJson("Invalid block index");
-        }
-        journal.truncateJournal(campaignId, blockIndex);
-        memoryProvider.clear(campaignId);
-        return objectMapper.writeValueAsString(Map.of("type", "backtrack_done"));
-    }
-
     private String handleEditBlock(JsonNode msg) throws Exception {
         int blockIndex = msg.path("blockIndex").asInt(-1);
         String originalText = msg.path("originalText").asText("");
@@ -485,14 +475,35 @@ public class PlayWebSocket {
         if (blockIndex < 0 || originalText.isEmpty() || newText.isEmpty()) {
             return errorJson("Invalid edit_block request");
         }
-        journal.replaceBlockText(campaignId, originalText, newText);
+        boolean success = journal.replaceBlockText(campaignId, originalText, newText);
         memoryProvider.clear(campaignId);
         String html = prettify.markdownToHtml(newText.trim());
         return objectMapper.writeValueAsString(Map.of(
                 "type", "edit_done",
                 "blockIndex", blockIndex,
+                "success", success,
                 "html", html,
                 "markdown", newText.trim()));
+    }
+
+    private String handleDeleteBlock(JsonNode msg) throws Exception {
+        String blockText = msg.path("blockText").asText("");
+        String blockType = msg.path("blockType").asText("");
+        if (blockText.isEmpty()) {
+            return errorJson("Invalid delete_block request");
+        }
+        boolean success = journal.deleteBlockText(campaignId, blockText, blockType);
+        memoryProvider.clear(campaignId);
+
+        // Re-parse journal and return full block list for UI refresh
+        String existingJournal = journal.getRecentJournal(campaignId, 100);
+        var blocks = existingJournal.isBlank()
+                ? List.of()
+                : JournalParser.parseToBlocks(existingJournal, prettify);
+        return objectMapper.writeValueAsString(Map.of(
+                "type", "delete_done",
+                "success", success,
+                "blocks", blocks));
     }
 
     private String extractLastPlayerInput(String journalContent) {

@@ -13,8 +13,7 @@ class PlayInterface {
         this.pendingMove = null;
         this.selectedStat = null;
         this.creationMode = false;
-        this.backtrackMode = false;
-        this.backtrackFromIndex = null;
+        this._pendingEdit = null;
 
         // DOM elements — gameplay
         this.chatContainer = document.getElementById('chat-messages');
@@ -32,8 +31,6 @@ class PlayInterface {
         this.sidebar = document.getElementById('sidebar');
 
         this.inspireBtn = document.getElementById('inspire-btn');
-        this.backtrackBtn = document.getElementById('backtrack-btn');
-        this.backtrackConfirmPanel = document.getElementById('backtrack-confirm');
 
         this.initWebSocket();
         this.initInput();
@@ -43,7 +40,6 @@ class PlayInterface {
         this.initDrawer();
         this.initMeters();
         this.initInspire();
-        this.initBacktrack();
         this._messageHandlers = this._buildMessageHandlers();
     }
 
@@ -84,12 +80,13 @@ class PlayInterface {
                 this.removeLoadingIndicator();
                 this.enableInput();
             },
-            'backtrack_done':    ()    => this.handleBacktrackDone(),
             'edit_done':         (msg) => this.handleEditDone(msg),
+            'delete_done':       (msg) => this.handleDeleteDone(msg),
             'error':             (msg) => {
                 this.removeLoadingIndicator();
                 this.addSystemMessage('An error occurred: ' + msg.message);
                 this.enableInput();
+                this.cancelAnyPendingEdit();
             },
         };
     }
@@ -343,9 +340,9 @@ class PlayInterface {
             div.innerHTML = block.html || '';
             if (block.index != null) div.dataset.blockIndex = block.index;
             if (block.markdown != null) div.dataset.markdown = block.markdown;
-            // Add edit button for user/assistant blocks with a server index
-            if (block.index != null && (type === 'user' || type === 'assistant')) {
-                this.addEditButton(div);
+            // Add action buttons for blocks with a server index
+            if (block.index != null) {
+                this.addBlockActions(div, type);
             }
             this.chatContainer.appendChild(div);
         }
@@ -1071,117 +1068,82 @@ class PlayInterface {
         this.send({ type: this.creationMode ? 'creation_inspire' : 'inspire' });
     }
 
-    // --- Backtrack mode ---
+    // --- Inline block editing & deletion ---
 
-    initBacktrack() {
-        this.backtrackBtn.addEventListener('click', () => this.toggleBacktrackMode());
-        document.getElementById('backtrack-confirm-btn').addEventListener('click', () => this.confirmBacktrack());
-        document.getElementById('backtrack-cancel-btn').addEventListener('click', () => this.exitBacktrackMode());
+    addBlockActions(div, type) {
+        const actions = document.createElement('div');
+        actions.className = 'message-actions';
 
-        this.chatContainer.addEventListener('click', (e) => {
-            if (!this.backtrackMode) return;
-            const msg = e.target.closest('.message[data-block-index]');
-            if (!msg) return;
-            this.selectBacktrackFromMessage(msg);
-        });
-    }
-
-    toggleBacktrackMode() {
-        if (this.backtrackMode) {
-            this.exitBacktrackMode();
-        } else {
-            this.enterBacktrackMode();
-        }
-    }
-
-    enterBacktrackMode() {
-        this.backtrackMode = true;
-        this.backtrackFromIndex = null;
-        this.chatContainer.classList.add('backtrack-mode');
-        this.backtrackBtn.classList.add('active');
-        this.messageInput.disabled = true;
-        this.sendBtn.classList.add('hidden');
-        if (this.inspireBtn) this.inspireBtn.classList.add('hidden');
-        this.backtrackConfirmPanel.classList.remove('hidden');
-        document.getElementById('backtrack-confirm-btn').disabled = true;
-        document.getElementById('backtrack-count').textContent = 'Select a message to backtrack to';
-    }
-
-    exitBacktrackMode() {
-        this.backtrackMode = false;
-        this.backtrackFromIndex = null;
-        this.chatContainer.classList.remove('backtrack-mode');
-        this.backtrackBtn.classList.remove('active');
-        this.backtrackConfirmPanel.classList.add('hidden');
-        // Clear selections
-        this.chatContainer.querySelectorAll('.backtrack-selected').forEach(el => {
-            el.classList.remove('backtrack-selected');
-        });
-        this.enableInput();
-        this.sendBtn.classList.remove('hidden');
-        if (this.inspireBtn) this.inspireBtn.classList.remove('hidden');
-    }
-
-    selectBacktrackFromMessage(clickedMsg) {
-        // Clear previous selection
-        this.chatContainer.querySelectorAll('.backtrack-selected').forEach(el => {
-            el.classList.remove('backtrack-selected');
-        });
-
-        this.backtrackFromIndex = parseInt(clickedMsg.dataset.blockIndex);
-
-        // Select the clicked message and everything after it in DOM order
-        let count = 0;
-        let selecting = false;
-        for (const el of this.chatContainer.querySelectorAll('.message')) {
-            if (el === clickedMsg) selecting = true;
-            if (selecting) {
-                el.classList.add('backtrack-selected');
-                count++;
-            }
+        // Edit button only for user/assistant blocks (not mechanical)
+        if (type !== 'mechanical') {
+            const editBtn = document.createElement('button');
+            editBtn.className = 'action-btn edit-btn';
+            editBtn.innerHTML = '&#x270E;';
+            editBtn.title = 'Edit';
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.startEdit(div);
+            });
+            actions.appendChild(editBtn);
         }
 
-        const confirmBtn = document.getElementById('backtrack-confirm-btn');
-        const countLabel = document.getElementById('backtrack-count');
-        confirmBtn.disabled = false;
-        countLabel.textContent = 'Delete ' + count + ' message' + (count !== 1 ? 's' : '') + '?';
-    }
-
-    confirmBacktrack() {
-        if (this.backtrackFromIndex === null) return;
-        this.send({ type: 'backtrack', blockIndex: this.backtrackFromIndex });
-        document.getElementById('backtrack-confirm-btn').disabled = true;
-        document.getElementById('backtrack-count').textContent = 'Deleting...';
-    }
-
-    handleBacktrackDone() {
-        // Remove selected messages and any unindexed messages after them
-        const selected = this.chatContainer.querySelectorAll('.backtrack-selected');
-        if (selected.length > 0) {
-            // Also remove any messages after the last selected (unindexed client-side messages)
-            let sibling = selected[selected.length - 1].nextElementSibling;
-            while (sibling) {
-                const next = sibling.nextElementSibling;
-                if (sibling.classList.contains('message')) sibling.remove();
-                sibling = next;
-            }
-        }
-        selected.forEach(el => el.remove());
-        this.exitBacktrackMode();
-    }
-
-    // --- Inline block editing ---
-
-    addEditButton(div) {
-        const btn = document.createElement('button');
-        btn.className = 'edit-btn';
-        btn.innerHTML = '&#x270E;';
-        btn.title = 'Edit this block';
-        btn.addEventListener('click', (e) => {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'action-btn delete-btn';
+        deleteBtn.innerHTML = '&#x1F5D1;';
+        deleteBtn.title = 'Delete';
+        deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.startEdit(div);
+            this.confirmDelete(div, deleteBtn);
         });
-        div.appendChild(btn);
+        actions.appendChild(deleteBtn);
+
+        div.appendChild(actions);
+    }
+
+    confirmDelete(div, btn) {
+        if (btn.dataset.confirming) {
+            // Already showing confirm — send delete
+            const blockType = div.classList.contains('user') ? 'user'
+                : div.classList.contains('mechanical') ? 'mechanical' : 'assistant';
+            this.send({
+                type: 'delete_block',
+                blockIndex: parseInt(div.dataset.blockIndex),
+                blockText: div.dataset.markdown || '',
+                blockType
+            });
+            btn.disabled = true;
+            btn.innerHTML = '&#x23F3;'; // hourglass
+            return;
+        }
+        // Show inline confirm
+        btn.dataset.confirming = 'true';
+        btn.innerHTML = '&#x2714;'; // checkmark
+        btn.title = 'Confirm delete';
+        btn.classList.add('confirming');
+
+        // Add cancel button next to it
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'action-btn delete-cancel-btn';
+        cancelBtn.innerHTML = '&#x2718;'; // cross
+        cancelBtn.title = 'Cancel';
+        cancelBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            delete btn.dataset.confirming;
+            btn.innerHTML = '&#x1F5D1;';
+            btn.title = 'Delete';
+            btn.classList.remove('confirming');
+            cancelBtn.remove();
+        });
+        btn.parentElement.appendChild(cancelBtn);
+    }
+
+    handleDeleteDone(msg) {
+        // Full UI refresh from server-provided blocks
+        this.chatContainer.innerHTML = '';
+        this.appendBlocks(msg.blocks || []);
+        if (!msg.success) {
+            this.addSystemMessage('Could not find that block in the journal.');
+        }
     }
 
     startEdit(div) {
@@ -1224,6 +1186,17 @@ class PlayInterface {
         delete div._originalHtml;
     }
 
+    cancelAnyPendingEdit() {
+        if (this._pendingEdit) {
+            clearTimeout(this._pendingEdit.timeout);
+            this._pendingEdit = null;
+        }
+        const editing = this.chatContainer.querySelector('.message.editing');
+        if (editing && editing._originalHtml) {
+            this.cancelEdit(editing);
+        }
+    }
+
     saveEdit(div, newText) {
         const originalText = div.dataset.markdown || '';
         if (newText.trim() === originalText.trim()) {
@@ -1239,12 +1212,31 @@ class PlayInterface {
             originalText,
             newText
         });
-        // Disable save while waiting
         div.querySelector('.edit-save-btn').disabled = true;
+
+        // Timeout: if no response in 5s, refresh UI from server
+        this._pendingEdit = {
+            blockIndex,
+            timeout: setTimeout(() => {
+                this._pendingEdit = null;
+                this.refreshFromServer();
+            }, 5000)
+        };
     }
 
     handleEditDone(msg) {
-        console.log('edit_done received', msg);
+        // Clear pending edit timeout
+        if (this._pendingEdit && this._pendingEdit.blockIndex === msg.blockIndex) {
+            clearTimeout(this._pendingEdit.timeout);
+            this._pendingEdit = null;
+        }
+
+        if (!msg.success) {
+            // Journal didn't match — refresh to re-sync
+            this.refreshFromServer();
+            return;
+        }
+
         const div = this.chatContainer.querySelector('.message[data-block-index="' + msg.blockIndex + '"]');
         if (!div) {
             console.warn('edit_done: no div found for blockIndex', msg.blockIndex);
@@ -1254,7 +1246,14 @@ class PlayInterface {
         delete div._originalHtml;
         div.innerHTML = msg.html;
         div.dataset.markdown = msg.markdown;
-        this.addEditButton(div);
+        const type = div.classList.contains('user') ? 'user' : 'assistant';
+        this.addBlockActions(div, type);
+    }
+
+    refreshFromServer() {
+        this.chatContainer.innerHTML = '';
+        this.addLoadingIndicator();
+        this.send({ type: 'start' });
     }
 
     // --- Bottom drawer (narrow screens) ---

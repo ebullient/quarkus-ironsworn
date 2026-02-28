@@ -273,54 +273,11 @@ public class GameJournal {
     }
 
     /**
-     * Truncate the journal at the given block index, removing that block and everything after it.
-     */
-    public void truncateJournal(String campaignId, int blockIndex) {
-        Object lock = CAMPAIGN_LOCKS.computeIfAbsent(campaignId, k -> new Object());
-        synchronized (lock) {
-            Path path = journalPath(campaignId);
-            try {
-                List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
-                int journalStart = -1;
-                for (int i = 0; i < lines.size(); i++) {
-                    if (lines.get(i).trim().equals("## Journal")) {
-                        journalStart = i + 1;
-                        break;
-                    }
-                }
-                if (journalStart < 0) {
-                    return;
-                }
-
-                String journalContent = String.join("\n", lines.subList(journalStart, lines.size()));
-                int lineOffset = JournalParser.findBlockStartLine(journalContent, blockIndex);
-                if (lineOffset < 0) {
-                    return;
-                }
-
-                // Keep everything before the journal section + journal header + lines up to the cut point
-                int cutLine = journalStart + lineOffset;
-                // Trim trailing blank lines before the cut point
-                while (cutLine > journalStart && lines.get(cutLine - 1).trim().isEmpty()) {
-                    cutLine--;
-                }
-                List<String> kept = new ArrayList<>(lines.subList(0, cutLine));
-                kept.add(""); // ensure trailing newline
-
-                Files.writeString(path, String.join("\n", kept) + "\n", StandardCharsets.UTF_8);
-                log.infof("Truncated journal for campaign %s at block %d (line %d)", campaignId, blockIndex, cutLine);
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to truncate journal for campaign: " + campaignId, e);
-            }
-        }
-    }
-
-    /**
      * Replace block text in the journal file using simple string substitution.
      * The originalText and newText are the raw markdown content (without structural
      * delimiters like {@code <player>} tags).
      */
-    public void replaceBlockText(String campaignId, String originalText, String newText) {
+    public boolean replaceBlockText(String campaignId, String originalText, String newText) {
         Object lock = CAMPAIGN_LOCKS.computeIfAbsent(campaignId, k -> new Object());
         synchronized (lock) {
             Path path = journalPath(campaignId);
@@ -329,14 +286,66 @@ public class GameJournal {
                 String updated = content.replace(originalText.trim(), newText.trim());
                 if (updated.equals(content)) {
                     log.warnf("replaceBlockText: original text not found in journal %s", campaignId);
-                    return;
+                    return false;
                 }
                 Files.writeString(path, updated, StandardCharsets.UTF_8);
                 if (storyMemoryIndexer != null) {
                     storyMemoryIndexer.requestIndex(campaignId);
                 }
+                return true;
             } catch (IOException e) {
                 throw new RuntimeException("Failed to replace block text in campaign: " + campaignId, e);
+            }
+        }
+    }
+
+    /**
+     * Delete a block from the journal by removing its text and surrounding structural markers.
+     * For player blocks, removes the {@code <player>...</player>} wrapper and content.
+     * For mechanical blocks, removes the {@code > } prefixed lines.
+     * For assistant blocks, removes the plain text.
+     */
+    public boolean deleteBlockText(String campaignId, String blockText, String blockType) {
+        Object lock = CAMPAIGN_LOCKS.computeIfAbsent(campaignId, k -> new Object());
+        synchronized (lock) {
+            Path path = journalPath(campaignId);
+            try {
+                String content = Files.readString(path, StandardCharsets.UTF_8);
+                String trimmed = blockText.trim();
+                String updated;
+
+                if ("user".equals(blockType)) {
+                    // Remove <player>...</player> block, tolerant of whitespace around tags
+                    String regex = "\n\\s*<player>\\s*"
+                            + Pattern.quote(trimmed)
+                            + "\\s*</player>";
+                    updated = content.replaceFirst(regex, "\n");
+                } else if ("mechanical".equals(blockType)) {
+                    // Remove > prefixed lines
+                    updated = content.replace("> " + trimmed, "");
+                } else {
+                    updated = content.replace(trimmed, "");
+                }
+
+                if (updated.equals(content)) {
+                    // Fallback: try removing just the text itself
+                    updated = content.replace(trimmed, "");
+                }
+                if (updated.equals(content)) {
+                    log.warnf("deleteBlockText: text not found in journal %s", campaignId);
+                    return false;
+                }
+
+                // Clean up excess blank lines (3+ consecutive → 2)
+                updated = updated.replaceAll("\n{3,}", "\n\n");
+
+                Files.writeString(path, updated, StandardCharsets.UTF_8);
+                if (storyMemoryIndexer != null) {
+                    storyMemoryIndexer.requestIndex(campaignId);
+                }
+                return true;
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to delete block text in campaign: " + campaignId, e);
             }
         }
     }
