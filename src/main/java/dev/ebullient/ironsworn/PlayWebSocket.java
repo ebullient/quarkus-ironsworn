@@ -118,7 +118,7 @@ public class PlayWebSocket {
     }
 
     private String reengageNarration(CharacterSheet character, String existingJournal) throws Exception {
-        String charCtx = formatCharacterContext(character);
+        String charCtx = character.name();
         String journalCtx = journal.getRecentJournal(campaignId, 30);
         String resumePrompt = endsWithPlayerEntry(existingJournal)
                 ? extractLastPlayerInput(existingJournal)
@@ -225,7 +225,7 @@ public class PlayWebSocket {
             journal.appendNarrative(campaignId, formatPlayerInput(text));
 
             CharacterSheet character = journal.readCharacter(campaignId);
-            String charCtx = formatCharacterContext(character);
+            String charCtx = character.name();
             String journalCtx = journal.getRecentJournal(campaignId, 60);
             String memoryCtx = storyMemory.relevantMemory(campaignId, text);
 
@@ -258,7 +258,7 @@ public class PlayWebSocket {
 
         try {
             CharacterSheet character = journal.readCharacter(campaignId);
-            String charCtx = formatCharacterContext(character);
+            String charCtx = character.name();
             String journalCtx = journal.getRecentJournal(campaignId, 60);
             // Use recent journal text as the query so memory retrieval finds relevant past context
             String[] lines = journalCtx.split("\n");
@@ -512,22 +512,6 @@ public class PlayWebSocket {
             return List.of();
         }
         return JournalParser.parseToBlocks(narrative, prettify);
-    }
-
-    private String formatCharacterContext(CharacterSheet c) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("**%s** — Edge %d, Heart %d, Iron %d, Shadow %d, Wits %d\n".formatted(
-                c.name(), c.edge(), c.heart(), c.iron(), c.shadow(), c.wits()));
-        sb.append("Health %d, Spirit %d, Supply %d, Momentum %d\n".formatted(
-                c.health(), c.spirit(), c.supply(), c.momentum()));
-        if (!c.vows().isEmpty()) {
-            sb.append("Vows:\n");
-            for (var vow : c.vows()) {
-                sb.append("- %s (%s, %d/10)\n".formatted(
-                        vow.description(), vow.rank().name().toLowerCase(), vow.progress()));
-            }
-        }
-        return sb.toString();
     }
 
     private String formatPlayerInput(String text) {
