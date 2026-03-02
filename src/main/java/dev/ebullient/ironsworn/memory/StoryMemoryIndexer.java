@@ -112,6 +112,10 @@ public class StoryMemoryIndexer {
         if (!isAvailable() || campaignId == null || campaignId.isBlank()) {
             return;
         }
+        if (scheduler == null || scheduler.isShutdown()) {
+            Log.debugf("Scheduler is shut down; skipping index for %s", campaignId);
+            return;
+        }
         ScheduledFuture<?> existing = pending.remove(campaignId);
         if (existing != null) {
             existing.cancel(false);
