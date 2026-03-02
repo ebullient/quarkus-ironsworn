@@ -17,7 +17,8 @@ public interface PlayAssistant {
             String characterContext,
             String journalContext,
             String memoryContext,
-            String playerInput);
+            String playerInput,
+            String choiceInstruction);
 
     @SystemMessage(fromResource = "prompts/play-narrateMoveResult-system.txt")
     @UserMessage(fromResource = "prompts/play-narrateMoveResult-user.txt")
@@ -30,7 +31,8 @@ public interface PlayAssistant {
             int challenge2,
             String moveOutcomeText,
             String journalContext,
-            String memoryContext);
+            String memoryContext,
+            String choiceInstruction);
 
     @SystemMessage(fromResource = "prompts/play-inspire-system.txt")
     @UserMessage(fromResource = "prompts/play-inspire-user.txt")
@@ -39,5 +41,6 @@ public interface PlayAssistant {
             String oracleResult,
             String characterContext,
             String journalContext,
-            String memoryContext);
+            String memoryContext,
+            String choiceInstruction);
 }

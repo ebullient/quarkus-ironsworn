@@ -8,6 +8,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import jakarta.inject.Inject;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -73,6 +75,9 @@ public class PlayWebSocket {
     @Inject
     ObjectMapper objectMapper;
 
+    @ConfigProperty(name = "ironsworn.narrate.choice-prompt", defaultValue = "false")
+    boolean choicePrompt;
+
     String campaignId;
 
     CreationEngine creationEngine;
@@ -130,17 +135,12 @@ public class PlayWebSocket {
             try {
                 connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
                         "type", "loading")));
-                PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, memoryCtx, resumePrompt);
+                PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, memoryCtx, resumePrompt,
+                        choiceInstruction());
                 String narrative = OracleService.stripOracleLines(
                         JournalParser.sanitizeNarrative(response.narrative()));
                 journal.appendNarrative(campaignId, narrative);
-                return objectMapper.writeValueAsString(Map.of(
-                        "type", "narrative",
-                        "narrative", narrative,
-                        "narrativeHtml", prettify.markdownToHtml(narrative),
-                        "blocks", blocksForNarrative(narrative),
-                        "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
-                        "location", response.location() != null ? response.location() : ""));
+                return narrativeJson(narrative, response);
             } finally {
                 lock.set(false);
             }
@@ -230,19 +230,14 @@ public class PlayWebSocket {
             String memoryCtx = storyMemory.relevantMemory(campaignId, text);
 
             memoryProvider.clear(campaignId);
-            PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, memoryCtx, text);
+            PlayResponse response = assistant.narrate(campaignId, charCtx, journalCtx, memoryCtx, text,
+                    choiceInstruction());
             String narrative = OracleService.stripOracleLines(
                     JournalParser.sanitizeNarrative(response.narrative()));
 
             journal.appendNarrative(campaignId, narrative);
 
-            return objectMapper.writeValueAsString(Map.of(
-                    "type", "narrative",
-                    "narrative", narrative,
-                    "narrativeHtml", prettify.markdownToHtml(narrative),
-                    "blocks", blocksForNarrative(narrative),
-                    "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
-                    "location", response.location() != null ? response.location() : ""));
+            return narrativeJson(narrative, response);
         } finally {
             if (lock != null) {
                 lock.set(false);
@@ -266,7 +261,8 @@ public class PlayWebSocket {
                     java.util.Arrays.copyOfRange(lines, Math.max(0, lines.length - 10), lines.length));
             String memoryCtx = storyMemory.relevantMemory(campaignId, memoryQuery);
 
-            InspireResult result = oracleService.inspireMe(campaignId, charCtx, journalCtx, memoryCtx);
+            InspireResult result = oracleService.inspireMe(campaignId, charCtx, journalCtx, memoryCtx,
+                    choiceInstruction());
 
             // Send oracle result to client if one was rolled server-side (non-tool-calling path)
             if (result.oracleResult() != null) {
@@ -276,13 +272,7 @@ public class PlayWebSocket {
             }
 
             PlayResponse response = result.response();
-            return objectMapper.writeValueAsString(Map.of(
-                    "type", "narrative",
-                    "narrative", result.narrative(),
-                    "narrativeHtml", prettify.markdownToHtml(result.narrative()),
-                    "blocks", blocksForNarrative(result.narrative()),
-                    "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
-                    "location", response.location() != null ? response.location() : ""));
+            return narrativeJson(result.narrative(), response);
         } finally {
             if (lock != null) {
                 lock.set(false);
@@ -375,7 +365,7 @@ public class PlayWebSocket {
             PlayResponse response = assistant.narrateMoveResult(
                     campaignId, moveName, outcome.display(),
                     actionScore, challenge1, challenge2,
-                    moveOutcomeText, journalCtx, "");
+                    moveOutcomeText, journalCtx, "", choiceInstruction());
             String narrative = OracleService.stripOracleLines(
                     JournalParser.sanitizeNarrative(response.narrative()));
 
@@ -383,26 +373,14 @@ public class PlayWebSocket {
 
             // If this vow roll ends the creation phase, send narrative first, then finalize
             if (!vowDescription.isEmpty() && creationEngine != null) {
-                connection.sendTextAndAwait(objectMapper.writeValueAsString(Map.of(
-                        "type", "narrative",
-                        "narrative", narrative,
-                        "narrativeHtml", prettify.markdownToHtml(narrative),
-                        "blocks", blocksForNarrative(narrative),
-                        "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
-                        "location", response.location() != null ? response.location() : "")));
+                connection.sendTextAndAwait(narrativeJson(narrative, response));
                 creationEngine = null;
                 return objectMapper.writeValueAsString(Map.of(
                         "type", "creation_phase",
                         "phase", "active"));
             }
 
-            return objectMapper.writeValueAsString(Map.of(
-                    "type", "narrative",
-                    "narrative", narrative,
-                    "narrativeHtml", prettify.markdownToHtml(narrative),
-                    "blocks", blocksForNarrative(narrative),
-                    "npcs", response.npcs() != null ? response.npcs() : java.util.List.of(),
-                    "location", response.location() != null ? response.location() : ""));
+            return narrativeJson(narrative, response);
         } finally {
             if (lock != null) {
                 lock.set(false);
@@ -523,6 +501,27 @@ public class PlayWebSocket {
             return List.of();
         }
         return JournalParser.parseToBlocks(narrative, prettify);
+    }
+
+    private String narrativeJson(String narrative, PlayResponse response) throws Exception {
+        var map = new java.util.HashMap<String, Object>();
+        map.put("type", "narrative");
+        map.put("narrative", narrative);
+        map.put("narrativeHtml", prettify.markdownToHtml(narrative));
+        map.put("blocks", blocksForNarrative(narrative));
+        map.put("npcs", response.npcs() != null ? response.npcs() : java.util.List.of());
+        map.put("location", response.location() != null ? response.location() : "");
+        if (choicePrompt && response.choices() != null && !response.choices().isEmpty()) {
+            map.put("choices", response.choices());
+        }
+        return objectMapper.writeValueAsString(map);
+    }
+
+    private String choiceInstruction() {
+        if (choicePrompt) {
+            return "IMPORTANT: Include exactly 3 short suggestions for what the player could do next. Each should be a brief player action (e.g. \"Search the ruins for supplies\", \"Confront the stranger about the missing goods\", \"Make camp and tend your wounds\"). Set these in the choices field.";
+        }
+        return "";
     }
 
     private String formatPlayerInput(String text) {

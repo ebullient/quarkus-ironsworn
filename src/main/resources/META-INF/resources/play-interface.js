@@ -41,6 +41,26 @@ class PlayInterface {
         this.initMeters();
         this.initInspire();
         this._messageHandlers = this._buildMessageHandlers();
+
+        // Event delegation for player choice buttons
+        this.chatContainer.addEventListener('click', (e) => {
+            const btn = e.target?.closest?.('button[data-choice]');
+            if (!btn) return;
+
+            const choice = (btn.getAttribute('data-choice') || '').trim();
+            if (!choice) return;
+
+            // Disable all buttons in this choice block
+            const block = btn.closest('.player-choices');
+            if (block) {
+                block.querySelectorAll('button[data-choice]').forEach(b => b.disabled = true);
+            }
+
+            // Pre-populate the chat input and focus it
+            this.messageInput.value = choice;
+            this.messageInput.dispatchEvent(new Event('input'));
+            this.messageInput.focus();
+        });
     }
 
     // --- WebSocket ---
@@ -695,7 +715,22 @@ class PlayInterface {
         if (msg.npcs && msg.npcs.length > 0) {
             document.getElementById('scene-npcs').textContent = msg.npcs.join(', ');
         }
+        if (msg.choices && msg.choices.length > 0) {
+            this.renderChoices(msg.choices);
+        }
         this.enableInput();
+    }
+
+    renderChoices(choices) {
+        const div = document.createElement('div');
+        div.className = 'player-choices';
+        div.innerHTML = '<div class="choices-header"><strong>Suggestions</strong></div>'
+            + '<ol class="choices-list">'
+            + choices.map(c => `<li><button type="button" class="choice-btn" data-choice="${c.replace(/"/g, '&quot;')}">${c}</button></li>`).join('')
+            + '</ol>'
+            + '<div class="choices-hint">...or type your own action</div>';
+        this.chatContainer.appendChild(div);
+        this.scrollToBottom();
     }
 
     handleMoveOutcome(msg) {

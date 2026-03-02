@@ -56,21 +56,22 @@ public class OracleService {
      * If the journal already ends with an oracle result, skip rolling and just narrate.
      * Otherwise delegates to either the tool-calling or non-tool-calling path based on config.
      */
-    public InspireResult inspireMe(String campaignId, String charCtx, String journalCtx, String memoryCtx) {
+    public InspireResult inspireMe(String campaignId, String charCtx, String journalCtx, String memoryCtx,
+            String choiceInstruction) {
         if (JournalParser.endsWithOracleEntry(journalCtx)) {
-            return narrateExistingOracle(campaignId, charCtx, journalCtx, memoryCtx);
+            return narrateExistingOracle(campaignId, charCtx, journalCtx, memoryCtx, choiceInstruction);
         }
         if (useToolCalling) {
             return inspireMeWithTools(campaignId, charCtx, journalCtx, memoryCtx);
         }
-        return inspireMeWithSelector(campaignId, charCtx, journalCtx, memoryCtx);
+        return inspireMeWithSelector(campaignId, charCtx, journalCtx, memoryCtx, choiceInstruction);
     }
 
     /**
      * The journal already ends with an oracle result — just narrate it without rolling again.
      */
     private InspireResult narrateExistingOracle(String campaignId, String charCtx,
-            String journalCtx, String memoryCtx) {
+            String journalCtx, String memoryCtx, String choiceInstruction) {
         Log.debugf("%s: Journal already ends with oracle, narrating directly", campaignId);
 
         // Extract the oracle line for the inspire prompt
@@ -78,7 +79,8 @@ public class OracleService {
         String inspireJournalCtx = buildInspireJournalContext(journalCtx);
 
         memoryProvider.clear(campaignId);
-        PlayResponse response = assistant.inspire(campaignId, oracleLine, charCtx, inspireJournalCtx, memoryCtx);
+        PlayResponse response = assistant.inspire(campaignId, oracleLine, charCtx, inspireJournalCtx, memoryCtx,
+                choiceInstruction);
         String narrative = stripOracleLines(JournalParser.sanitizeNarrative(response.narrative()));
         journal.appendNarrative(campaignId, narrative);
 
@@ -102,7 +104,7 @@ public class OracleService {
      * then PlayAssistant.inspire() narrates with the oracle already in the journal.
      */
     private InspireResult inspireMeWithSelector(String campaignId, String charCtx,
-            String journalCtx, String memoryCtx) {
+            String journalCtx, String memoryCtx, String choiceInstruction) {
         // Let the model choose WHICH oracle to roll, then roll it server-side.
         InspireOracleChoice choice = null;
         try {
@@ -130,7 +132,7 @@ public class OracleService {
         // Clear chat memory so the LLM relies on the current system+user prompt.
         memoryProvider.clear(campaignId);
         PlayResponse response = assistant.inspire(campaignId, oracle.toJournalEntry(), charCtx, inspireJournalCtx,
-                memoryCtx);
+                memoryCtx, choiceInstruction);
         String narrative = stripOracleLines(JournalParser.sanitizeNarrative(response.narrative()));
         journal.appendNarrative(campaignId, narrative);
 
@@ -156,7 +158,7 @@ public class OracleService {
         String narrative = JournalParser.sanitizeNarrative(rawResponse);
         journal.appendNarrative(campaignId, narrative);
 
-        PlayResponse response = new PlayResponse(narrative, List.of(), "");
+        PlayResponse response = new PlayResponse(narrative, List.of(), "", List.of());
         return new InspireResult(null, response, narrative);
     }
 

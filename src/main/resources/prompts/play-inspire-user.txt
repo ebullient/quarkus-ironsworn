@@ -11,3 +11,5 @@
 {memoryContext}
 
 Narrate the next beat using the oracle result above as inspiration.
+
+{choiceInstruction}

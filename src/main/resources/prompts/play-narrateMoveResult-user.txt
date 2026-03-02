@@ -13,3 +13,5 @@
 {memoryContext}
 
 Narrate what happens.
+
+{choiceInstruction}
