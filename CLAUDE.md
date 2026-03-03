@@ -1,20 +1,14 @@
 # AI Assistant Guidelines
 
-**For architecture, build commands, and API reference, see [CONTRIBUTING.md](CONTRIBUTING.md).**
+Act as a pair programming partner. Be succinct. Ask when implementation choices are unclear.
 
-## Your Role
+## Finding Code
 
-Act as a pair programming partner:
+Consult [CONTRIBUTING.md](CONTRIBUTING.md) for architecture, package layout, and build commands before exploring the codebase. Use it as a map to target searches — avoid broad file-system scans.
 
-- **REVIEW THOROUGHLY**: Use file system access when available
-- **ASK**: If implementation choices are unclear, ask for clarification
-- **BE EFFICIENT**: Be succinct.
-- **RESPECT PRIVACY**: Do not read .env* files unless instructed
-- **NO SPECULATION**: Never make up code or guess at API behavior
+## Rules
 
-## Additional notes
-
+- Do not read `.env*` files unless instructed.
+- Do not edit files in `src/main/java/Datasworn/` (generated types) unless asked.
+- Do not edit `.css` files directly — edit `.scss` sources in `src/main/scss/`.
 - Run `./mvnw process-sources` before committing.
-- The `src/main/java/Datasworn/` contains generated types — do not edit these files unless asked.
-- `.css` files are produced from `.scss` files in `src/main/scss`
-- `.js` files are in `src/main/resources/META-INF/resources`
