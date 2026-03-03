@@ -13,10 +13,11 @@ public record CharacterSheet(
         int spirit,
         int supply,
         int momentum,
+        String location,
         List<Vow> vows) {
 
     public static CharacterSheet defaults(String name) {
-        return new CharacterSheet(name, 1, 1, 1, 1, 1, 5, 5, 5, 2, List.of());
+        return new CharacterSheet(name, 1, 1, 1, 1, 1, 5, 5, 5, 2, "", List.of());
     }
 
     public int stat(String statName) {

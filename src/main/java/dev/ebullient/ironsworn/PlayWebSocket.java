@@ -123,7 +123,7 @@ public class PlayWebSocket {
     }
 
     private String reengageNarration(CharacterSheet character, String existingJournal) throws Exception {
-        String charCtx = character.name();
+        String charCtx = characterContext(character);
         String journalCtx = journal.getRecentJournal(campaignId, 30);
         String resumePrompt = endsWithPlayerEntry(existingJournal)
                 ? extractLastPlayerInput(existingJournal)
@@ -225,7 +225,7 @@ public class PlayWebSocket {
             journal.appendNarrative(campaignId, formatPlayerInput(text));
 
             CharacterSheet character = journal.readCharacter(campaignId);
-            String charCtx = character.name();
+            String charCtx = characterContext(character);
             String journalCtx = journal.getRecentJournal(campaignId, 60);
             String memoryCtx = storyMemory.relevantMemory(campaignId, text);
 
@@ -253,7 +253,7 @@ public class PlayWebSocket {
 
         try {
             CharacterSheet character = journal.readCharacter(campaignId);
-            String charCtx = character.name();
+            String charCtx = characterContext(character);
             String journalCtx = journal.getRecentJournal(campaignId, 60);
             // Use recent journal text as the query so memory retrieval finds relevant past context
             String[] lines = journalCtx.split("\n");
@@ -301,7 +301,7 @@ public class PlayWebSocket {
             CharacterSheet updated = new CharacterSheet(
                     character.name(), character.edge(), character.heart(), character.iron(),
                     character.shadow(), character.wits(), character.health(), character.spirit(),
-                    character.supply(), character.momentum(), updatedVows);
+                    character.supply(), character.momentum(), character.location(), updatedVows);
             journal.updateCharacter(campaignId, updated);
 
             // Notify client so sidebar vows list updates
@@ -430,7 +430,7 @@ public class PlayWebSocket {
         CharacterSheet updated = new CharacterSheet(
                 character.name(), character.edge(), character.heart(), character.iron(),
                 character.shadow(), character.wits(), character.health(), character.spirit(),
-                character.supply(), character.momentum(), updatedVows);
+                character.supply(), character.momentum(), character.location(), updatedVows);
 
         journal.updateCharacter(campaignId, updated);
         return objectMapper.writeValueAsString(Map.of(
@@ -504,6 +504,11 @@ public class PlayWebSocket {
     }
 
     private String narrativeJson(String narrative, PlayResponse response) throws Exception {
+        // Persist location from LLM response to character sheet
+        if (response.location() != null && !response.location().isBlank()) {
+            journal.updateLocation(campaignId, response.location());
+        }
+
         var map = new java.util.HashMap<String, Object>();
         map.put("type", "narrative");
         map.put("narrative", narrative);
@@ -515,6 +520,14 @@ public class PlayWebSocket {
             map.put("choices", response.choices());
         }
         return objectMapper.writeValueAsString(map);
+    }
+
+    private String characterContext(CharacterSheet character) {
+        String ctx = character.name();
+        if (character.location() != null && !character.location().isBlank()) {
+            ctx += "\nCurrent location: " + character.location();
+        }
+        return ctx;
     }
 
     private String choiceInstruction() {

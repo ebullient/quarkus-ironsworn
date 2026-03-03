@@ -679,6 +679,7 @@ class PlayInterface {
         div.innerHTML = html;
         this.chatContainer.appendChild(div);
         this.scrollToBottom();
+        return div;
     }
 
     addLoadingIndicator(text) {
@@ -711,6 +712,9 @@ class PlayInterface {
         }
         if (msg.location) {
             document.getElementById('scene-location').textContent = msg.location;
+            if (this.character) {
+                this.character.location = msg.location;
+            }
         }
         if (msg.npcs && msg.npcs.length > 0) {
             document.getElementById('scene-npcs').textContent = msg.npcs.join(', ');
@@ -942,7 +946,7 @@ class PlayInterface {
 
         const outcomeClass = outcome.replace('_', '-').toLowerCase();
         const addsLabel = adds > 0 ? ' +' + adds + ' adds' : '';
-        this.addMechanicalMessage(
+        const rollCard = this.addMechanicalMessage(
             '<strong>' + this.pendingMove.name + '</strong> (+' + this.selectedStat + ' ' + statValue + addsLabel + ')<br>' +
             'Action die: ' + actionDie + ' → Score: ' + actionScore + '<br>' +
             'Challenge: ' + challenge1 + ' / ' + challenge2 + '<br>' +
@@ -954,7 +958,7 @@ class PlayInterface {
         if (this.canBurnMomentum(momentum, actionScore, challenge1, challenge2, outcome)) {
             this.pendingRollData = {
                 actionDie, challenge1, challenge2, actionScore, statValue,
-                adds, outcome, momentum
+                adds, outcome, momentum, rollCard
             };
             this.showMomentumBurn(momentum, challenge1, challenge2, outcome);
             return;
@@ -997,6 +1001,17 @@ class PlayInterface {
     burnMomentum() {
         const data = this.pendingRollData;
         const burnOutcome = this.computeOutcome(data.momentum, data.challenge1, data.challenge2);
+        const burnClass = burnOutcome.replace('_', '-').toLowerCase();
+
+        // Update the roll card to show the burned outcome
+        if (data.rollCard) {
+            data.rollCard.className = 'message mechanical ' + burnClass;
+            const outcomeEl = data.rollCard.querySelector('strong[class^="outcome-"]');
+            if (outcomeEl) {
+                outcomeEl.className = 'outcome-' + burnClass;
+                outcomeEl.textContent = burnOutcome.replace('_', ' ');
+            }
+        }
 
         this.character.momentum = 2;
         console.log('[character] sending momentum burn update');

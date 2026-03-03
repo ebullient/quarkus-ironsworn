@@ -36,6 +36,8 @@ public class GameJournal {
             "\\*\\*Health\\*\\*:\\s*(-?\\d+)\\s*\\|\\s*\\*\\*Spirit\\*\\*:\\s*(-?\\d+)\\s*\\|\\s*\\*\\*Supply\\*\\*:\\s*(-?\\d+)\\s*\\|\\s*\\*\\*Momentum\\*\\*:\\s*(-?\\d+)");
     private static final Pattern VOW_LINE = Pattern.compile(
             "-\\s*\\[([x ])]\\s*(.+?)\\s*—\\s*(\\w+)\\s*\\((\\d+)/10\\)");
+    private static final Pattern LOCATION_LINE = Pattern.compile(
+            "\\*\\*Location\\*\\*:\\s*(.*)");
     private static final Pattern TITLE_LINE = Pattern.compile(
             "^#\\s+Ironsworn:\\s*(.+)$");
 
@@ -110,6 +112,7 @@ public class GameJournal {
         sb.append("## Character\n");
         sb.append(formatStatsLine(character)).append("\n");
         sb.append(formatMetersLine(character)).append("\n");
+        sb.append(formatLocationLine(character)).append("\n");
         sb.append("\n### Vows\n");
         for (Vow vow : character.vows()) {
             sb.append(formatVowLine(vow)).append("\n");
@@ -175,6 +178,9 @@ public class GameJournal {
             if (METERS_LINE.matcher(line).find()) {
                 lines.set(i, formatMetersLine(character));
             }
+            if (LOCATION_LINE.matcher(line).find()) {
+                lines.set(i, formatLocationLine(character));
+            }
         }
     }
 
@@ -204,6 +210,25 @@ public class GameJournal {
         result.add(""); // blank line before ---
         result.addAll(lines.subList(vowEnd, lines.size()));
         return result;
+    }
+
+    public void updateLocation(String campaignId, String location) {
+        Object lock = CAMPAIGN_LOCKS.computeIfAbsent(campaignId, k -> new Object());
+        synchronized (lock) {
+            Path path = journalPath(campaignId);
+            try {
+                List<String> lines = new ArrayList<>(Files.readAllLines(path, StandardCharsets.UTF_8));
+                for (int i = 0; i < lines.size(); i++) {
+                    if (LOCATION_LINE.matcher(lines.get(i)).find()) {
+                        lines.set(i, "- **Location**: %s".formatted(location));
+                        Files.writeString(path, String.join("\n", lines), StandardCharsets.UTF_8);
+                        return;
+                    }
+                }
+            } catch (IOException e) {
+                log.errorf(e, "Failed to update location for campaign: %s", campaignId);
+            }
+        }
     }
 
     public String getFullJournal(String campaignId) {
@@ -386,6 +411,7 @@ public class GameJournal {
         String name = "";
         int edge = 1, heart = 1, iron = 1, shadow = 1, wits = 1;
         int health = 5, spirit = 5, supply = 5, momentum = 2;
+        String location = "";
         List<Vow> vows = new ArrayList<>();
 
         for (String line : lines) {
@@ -411,6 +437,11 @@ public class GameJournal {
                 momentum = Integer.parseInt(metersMatch.group(4));
             }
 
+            Matcher locationMatch = LOCATION_LINE.matcher(line);
+            if (locationMatch.find()) {
+                location = locationMatch.group(1).trim();
+            }
+
             Matcher vowMatch = VOW_LINE.matcher(line);
             if (vowMatch.find()) {
                 String desc = vowMatch.group(2).trim();
@@ -421,7 +452,7 @@ public class GameJournal {
         }
 
         return new CharacterSheet(name, edge, heart, iron, shadow, wits,
-                health, spirit, supply, momentum, vows);
+                health, spirit, supply, momentum, location, vows);
     }
 
     // --- Formatting helpers ---
@@ -434,6 +465,10 @@ public class GameJournal {
     private String formatMetersLine(CharacterSheet c) {
         return "- **Health**: %d | **Spirit**: %d | **Supply**: %d | **Momentum**: %d".formatted(
                 c.health(), c.spirit(), c.supply(), c.momentum());
+    }
+
+    private String formatLocationLine(CharacterSheet c) {
+        return "- **Location**: %s".formatted(c.location() != null ? c.location() : "");
     }
 
     private String formatVowLine(Vow v) {
