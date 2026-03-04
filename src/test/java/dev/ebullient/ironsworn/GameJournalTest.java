@@ -71,7 +71,7 @@ class GameJournalTest {
     @Test
     void readCharacter_withCustomStatsAndVows() {
         CharacterSheet custom = new CharacterSheet("Kira", 3, 2, 1, 2, 1,
-                4, 3, 5, 4,
+                4, 3, 5, 4, "Hills",
                 List.of(
                         new Vow("Find the lost shrine", Rank.DANGEROUS, 3),
                         new Vow("Avenge my clan", Rank.FORMIDABLE, 0)));
@@ -106,7 +106,7 @@ class GameJournalTest {
     @Test
     void isCreationPhase_falseWhenHasVows() {
         CharacterSheet withVows = new CharacterSheet("Kira", 2, 2, 2, 2, 1,
-                5, 5, 5, 2,
+                5, 5, 5, 2, "Hills",
                 List.of(new Vow("A dangerous quest", Rank.DANGEROUS, 0)));
         journal.createCampaign(withVows, null);
         assertFalse(journal.isCreationPhase("kira"));
@@ -196,7 +196,7 @@ class GameJournalTest {
         journal.createStubCampaign("Test Hero");
 
         CharacterSheet updated = new CharacterSheet("Test Hero", 3, 2, 1, 2, 1,
-                4, 3, 5, 6,
+                4, 3, 5, 6, "Hills",
                 List.of(new Vow("Save the village", Rank.DANGEROUS, 5)));
         journal.updateCharacter("test-hero", updated);
 
@@ -226,7 +226,7 @@ class GameJournalTest {
 
         // Finalize character with vows
         CharacterSheet withVows = new CharacterSheet("Ash", 2, 3, 1, 2, 1,
-                5, 5, 5, 2,
+                5, 5, 5, 2, "Hills",
                 List.of(new Vow("Find the iron shrine", Rank.DANGEROUS, 0)));
         journal.updateCharacter("ash", withVows);
 
