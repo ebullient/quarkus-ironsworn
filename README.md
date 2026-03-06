@@ -119,6 +119,10 @@ Open [http://localhost:8082](http://localhost:8082).
 
 ---
 
+## Presentations
+
+* [Devnexus 2026 (Erin Schnabel and Jennifer Reif)](https://speakerdeck.com/jmhreif/supercharge-your-applications-with-java-graphs-and-a-touch-of-ai)
+
 ## Project Structure
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for architecture details, code formatting rules,
