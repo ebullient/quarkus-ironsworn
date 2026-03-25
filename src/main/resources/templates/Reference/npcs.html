@@ -1,0 +1,59 @@
+{#include base}
+{#title}NPCs - Ironsworn{/title}
+
+{#stylesheets}
+<link rel="stylesheet" href="/reference.css">
+{/stylesheets}
+
+{#header-title}Ironsworn NPCs{/header-title}
+
+{#mainClass}class="reference"{/mainClass}
+{#content}
+<ul>
+{#for entry in npcs.entrySet}
+<li><a href="#{entry.key}">{entry.value.name.value}</a></li>
+{/for}
+</ul>
+
+{#for entry in npcs.entrySet}
+<h2 id="{entry.key}">{entry.value.name.value}</h2>
+{#if entry.value.summary}{util:mdToHtml(entry.value.summary)}{/if}
+{#if entry.value.description}{util:mdToHtml(entry.value.description)}{/if}
+
+{#if entry.value.contents}
+{#for npc in entry.value.contents.entrySet}
+<h3 id="{npc.key}">{npc.value.name.value}</h3>
+{#if npc.value.description}{util:mdToHtml(npc.value.description)}{/if}
+
+{#if npc.value.features}
+<h4>Features</h4>
+<ul>
+{#for f in npc.value.features}<li>{util:mdToHtml(f, true)}</li>{/for}
+</ul>
+{/if}
+
+{#if npc.value.drives}
+<h4>Drives</h4>
+<ul>
+{#for d in npc.value.drives}<li>{util:mdToHtml(d, true)}</li>{/for}
+</ul>
+{/if}
+
+{#if npc.value.tactics}
+<h4>Tactics</h4>
+<ul>
+{#for t in npc.value.tactics}<li>{util:mdToHtml(t, true)}</li>{/for}
+</ul>
+{/if}
+
+{#if npc.value.questStarter}
+<h4>Quest Starter</h4>
+{util:mdToHtml(npc.value.questStarter)}
+{/if}
+
+{/for}
+{/if}
+
+{/for}
+{/content}
+{/include}
