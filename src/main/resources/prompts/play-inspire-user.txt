@@ -1,3 +1,11 @@
+An oracle result is provided below. Weave it into vivid, atmospheric prose.
+Continue from the current scene — do not change location or time. The oracle
+manifests as a detail, complication, or revelation within the current moment.
+Reference concrete elements from the SCENE ANCHOR.
+
+If the oracle result does not clearly signal threat, default to discovery,
+complication, or human detail instead of peril.
+
 ## Oracle Result
 {oracleResult}
 
