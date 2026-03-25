@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import dev.ebullient.ironsworn.JournalParser;
+import dev.ebullient.ironsworn.journal.JournalParser;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest

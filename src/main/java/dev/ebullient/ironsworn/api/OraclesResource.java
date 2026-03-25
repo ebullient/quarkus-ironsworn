@@ -11,8 +11,8 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
 import Datasworn.OracleTablesCollection;
-import dev.ebullient.ironsworn.DataswornService;
-import dev.ebullient.ironsworn.chat.OracleTool;
+import dev.ebullient.ironsworn.chat.oracle.OracleTool;
+import dev.ebullient.ironsworn.rules.DataswornService;
 
 @Path("/api/oracles")
 @ApplicationScoped

@@ -1,6 +1,6 @@
 package dev.ebullient.ironsworn.model;
 
-import dev.ebullient.ironsworn.StringUtils;
+import dev.ebullient.ironsworn.util.StringUtils;
 
 public record OracleResult(
         String collectionName,
