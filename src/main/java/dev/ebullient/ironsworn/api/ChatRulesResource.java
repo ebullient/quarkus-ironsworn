@@ -13,8 +13,8 @@ import jakarta.ws.rs.core.MediaType;
 
 import org.jboss.resteasy.reactive.RestQuery;
 
-import dev.ebullient.ironsworn.chat.ChatAssistant;
-import dev.ebullient.ironsworn.chat.MarkdownAugmenter;
+import dev.ebullient.ironsworn.chat.assistant.ChatAssistant;
+import dev.ebullient.ironsworn.util.MarkdownAugmenter;
 
 /**
  * Generic LLM chat interface - independent of any specific setting or story.

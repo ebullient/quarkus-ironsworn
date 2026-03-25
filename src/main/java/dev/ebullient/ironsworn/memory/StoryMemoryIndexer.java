@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
@@ -28,8 +29,10 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import dev.ebullient.ironsworn.JournalParser;
-import dev.ebullient.ironsworn.JournalParser.JournalExchange;
+import dev.ebullient.ironsworn.journal.CampaignDeletedEvent;
+import dev.ebullient.ironsworn.journal.JournalIndexEvent;
+import dev.ebullient.ironsworn.journal.JournalParser;
+import dev.ebullient.ironsworn.journal.JournalParser.JournalExchange;
 import dev.langchain4j.community.store.embedding.neo4j.Neo4jEmbeddingStore;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.embedding.Embedding;
@@ -106,6 +109,18 @@ public class StoryMemoryIndexer {
 
     public void requestIndex(String campaignId) {
         scheduleIndex(campaignId, debounceMillis);
+    }
+
+    void onJournalIndexEvent(@Observes JournalIndexEvent event) {
+        if (event.immediate()) {
+            warmIndex(event.campaignId());
+        } else {
+            requestIndex(event.campaignId());
+        }
+    }
+
+    void onCampaignDeleted(@Observes CampaignDeletedEvent event) {
+        deleteCampaignIndex(event.campaignId());
     }
 
     private void scheduleIndex(String campaignId, long delayMillis) {

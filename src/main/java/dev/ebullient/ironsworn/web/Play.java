@@ -10,9 +10,9 @@ import jakarta.ws.rs.Path;
 
 import Datasworn.MoveCategory;
 import Datasworn.OracleTablesCollection;
-import dev.ebullient.ironsworn.DataswornService;
-import dev.ebullient.ironsworn.GameJournal;
+import dev.ebullient.ironsworn.journal.GameJournal;
 import dev.ebullient.ironsworn.model.Campaign;
+import dev.ebullient.ironsworn.rules.DataswornService;
 import io.quarkiverse.renarde.Controller;
 import io.quarkus.qute.CheckedTemplate;
 import io.quarkus.qute.TemplateInstance;

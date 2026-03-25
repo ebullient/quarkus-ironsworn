@@ -10,13 +10,13 @@ import jakarta.ws.rs.core.MediaType;
 
 import org.jboss.resteasy.reactive.RestPath;
 
-import dev.ebullient.ironsworn.GameJournal;
-import dev.ebullient.ironsworn.JournalParser;
-import dev.ebullient.ironsworn.chat.CampaignAssistant;
-import dev.ebullient.ironsworn.chat.CampaignResponse;
-import dev.ebullient.ironsworn.chat.MarkdownAugmenter;
+import dev.ebullient.ironsworn.chat.assistant.CampaignAssistant;
+import dev.ebullient.ironsworn.chat.response.CampaignResponse;
+import dev.ebullient.ironsworn.journal.GameJournal;
+import dev.ebullient.ironsworn.journal.JournalParser;
 import dev.ebullient.ironsworn.memory.StoryMemoryService;
 import dev.ebullient.ironsworn.model.CharacterSheet;
+import dev.ebullient.ironsworn.util.MarkdownAugmenter;
 
 @ApplicationScoped
 @Path("/api/campaign")

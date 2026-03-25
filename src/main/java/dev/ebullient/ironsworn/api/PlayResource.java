@@ -18,7 +18,7 @@ import org.jboss.resteasy.reactive.RestPath;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import dev.ebullient.ironsworn.GameJournal;
+import dev.ebullient.ironsworn.journal.GameJournal;
 import dev.ebullient.ironsworn.model.Campaign;
 import dev.ebullient.ironsworn.model.CharacterSheet;
 

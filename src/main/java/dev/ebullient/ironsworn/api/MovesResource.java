@@ -16,7 +16,7 @@ import jakarta.ws.rs.core.Response.Status;
 import org.jboss.resteasy.reactive.RestPath;
 
 import Datasworn.Move;
-import dev.ebullient.ironsworn.DataswornService;
+import dev.ebullient.ironsworn.rules.DataswornService;
 
 @Path("/api/moves")
 @ApplicationScoped

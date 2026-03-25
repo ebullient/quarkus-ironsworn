@@ -13,7 +13,7 @@ import Datasworn.NpcCollection;
 import Datasworn.OracleTablesCollection;
 import Datasworn.Rules;
 import Datasworn.Truth;
-import dev.ebullient.ironsworn.DataswornService;
+import dev.ebullient.ironsworn.rules.DataswornService;
 import io.quarkus.qute.CheckedTemplate;
 import io.quarkus.qute.TemplateInstance;
 

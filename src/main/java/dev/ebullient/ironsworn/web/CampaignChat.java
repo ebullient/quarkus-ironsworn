@@ -5,7 +5,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 
-import dev.ebullient.ironsworn.GameJournal;
+import dev.ebullient.ironsworn.journal.GameJournal;
 import dev.ebullient.ironsworn.model.Campaign;
 import io.quarkiverse.renarde.Controller;
 import io.quarkus.qute.CheckedTemplate;
