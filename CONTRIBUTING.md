@@ -47,21 +47,31 @@ The build enforces formatting via `formatter-maven-plugin` (Eclipse style from `
     - `/` landing page, `/chat` and `/rules` chat interfaces
     - `/play/` campaign list and `/play/{campaignId}` game interface
     - `/campaign/{campaignId}` campaign assistant chat
-    - `/reference/moves` and `/reference/oracles` rules reference
+    - `/reference/` — moves, oracles, npcs, truths, atlas, rules
 - **`api/`** — REST endpoints for chat, moves, oracles, and gameplay
-- Primary gameplay WebSocket at `/ws/play/{campaignId}` — handles the full play loop: character creation, narrative input, move results, oracle rolls, progress tracking.
+- **`play/`** — Primary gameplay WebSocket at `/ws/play/{campaignId}` and character creation engine. Handles the full play loop: character creation, narrative input, move results, oracle rolls, progress tracking.
     - Client → server message types: `creation_chat`, `narrative`, `move_result` (with optional `vowDescription`/`vowRank`), `inspire`, `oracle`, `oracle_manual`, `progress_mark`, `character_update`, `backtrack`.
 
 ### AI/Chat Layer (Quarkus LangChain4j)
 
-- **`chat/`** — LLM-backed assistants for general chat/rules Q&A, campaign narration (stateful per campaign), and guided character creation
-- Each assistant has a paired response record and guardrail for structured JSON output validation
+- **`chat/assistant/`** — LLM-backed assistants for general chat/rules Q&A, campaign narration (stateful per campaign), and guided character creation
+- **`chat/response/`** — Structured JSON response records and their guardrails for output validation
+- **`chat/oracle/`** — Oracle and inspire pipeline (oracle tool, selector, and result processing)
+- **`memory/`** — Story memory indexing and retrieval via Neo4j embeddings
 
-### Game Engine
+### Rules & Game Engine
 
-- Dice rolling, oracle table lookups, move outcome text retrieval, progress tracking
+- **`rules/`** — Dice rolling, oracle table lookups, move outcome text retrieval, progress tracking
 - Rules data loaded from `src/main/resources/rules/` YAML files (Datasworn format) at startup
-- Markdown file-based persistence — campaign journals live in configurable `ironsworn.journal.dir` (`target/dev-ironsworn` in dev). Character sheets, vows, and journal entries are parsed/updated in-place within the markdown
+
+### Journal & Persistence
+
+- **`journal/`** — Markdown file-based persistence — campaign journals live in configurable `ironsworn.journal.dir` (`target/dev-ironsworn` in dev). Character sheets, vows, and journal entries are parsed/updated in-place within the markdown
+
+### Supporting Packages
+
+- **`model/`** — Domain model records (Campaign, CharacterSheet, Vow, ActionRollResult, OracleResult, etc.)
+- **`util/`** — Shared utilities (StringUtils, MarkdownAugmenter)
 
 ### Datasworn Types
 
