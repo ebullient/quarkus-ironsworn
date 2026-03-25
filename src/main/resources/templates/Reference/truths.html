@@ -1,0 +1,32 @@
+{#include base}
+{#title}Truths - Ironsworn{/title}
+
+{#stylesheets}
+<link rel="stylesheet" href="/reference.css">
+{/stylesheets}
+
+{#header-title}Ironsworn Truths{/header-title}
+
+{#mainClass}class="reference"{/mainClass}
+{#content}
+<ul>
+{#for entry in truths.entrySet}
+<li><a href="#{entry.key}">{entry.value.name.value}</a></li>
+{/for}
+</ul>
+
+{#for entry in truths.entrySet}
+<h2 id="{entry.key}">{entry.value.name.value}</h2>
+
+{#for option in entry.value.options}
+<h3>{option.min}–{option.max}</h3>
+{util:mdToHtml(option.description)}
+{#if option.questStarter}
+<h4>Quest Starter</h4>
+{util:mdToHtml(option.questStarter)}
+{/if}
+{/for}
+
+{/for}
+{/content}
+{/include}

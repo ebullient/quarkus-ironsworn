@@ -9,8 +9,10 @@ import jakarta.ws.rs.Path;
 
 import Datasworn.AtlasEntry;
 import Datasworn.MoveCategory;
+import Datasworn.NpcCollection;
 import Datasworn.OracleTablesCollection;
 import Datasworn.Rules;
+import Datasworn.Truth;
 import dev.ebullient.ironsworn.DataswornService;
 import io.quarkus.qute.CheckedTemplate;
 import io.quarkus.qute.TemplateInstance;
@@ -29,7 +31,11 @@ public class Reference {
 
         public static native TemplateInstance oracles(Map<String, OracleTablesCollection> oracles);
 
+        public static native TemplateInstance npcs(Map<String, NpcCollection> npcs);
+
         public static native TemplateInstance rules(Rules rules);
+
+        public static native TemplateInstance truths(Map<String, Truth> truths);
     }
 
     @Inject
@@ -60,8 +66,20 @@ public class Reference {
     }
 
     @GET
+    @Path("/npcs")
+    public TemplateInstance npcs() {
+        return Templates.npcs(data.getNpcs());
+    }
+
+    @GET
     @Path("/rules")
     public TemplateInstance rules() {
         return Templates.rules(data.getRules());
+    }
+
+    @GET
+    @Path("/truths")
+    public TemplateInstance truths() {
+        return Templates.truths(data.getTruths());
     }
 }

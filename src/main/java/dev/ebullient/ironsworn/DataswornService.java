@@ -20,9 +20,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import Datasworn.AtlasEntry;
 import Datasworn.MoveCategory;
+import Datasworn.NpcCollection;
 import Datasworn.OracleTablesCollection;
 import Datasworn.Rules;
 import Datasworn.RulesPackageRuleset;
+import Datasworn.Truth;
 import io.quarkus.runtime.Startup;
 
 @Startup
@@ -37,7 +39,9 @@ public class DataswornService {
     private final Yaml yaml;
     private final Map<String, AtlasEntry> locations = new LinkedHashMap<>();
     private final Map<String, MoveCategory> moves = new LinkedHashMap<>();
+    private final Map<String, NpcCollection> npcs = new LinkedHashMap<>();
     private final Map<String, OracleTablesCollection> oracles = new LinkedHashMap<>();
+    private final Map<String, Truth> truths = new LinkedHashMap<>();
     private Rules rules;
 
     public DataswornService() {
@@ -52,8 +56,11 @@ public class DataswornService {
         loadAtlas();
         loadMoves();
         loadOracles();
+        loadNpcs();
+        loadTruths();
 
-        log.infof("Loaded %d move categories and %d oracle collections", moves.size(), oracles.size());
+        log.infof("Loaded %d move categories, %d oracle collections, %d npc collections, %d truths",
+                moves.size(), oracles.size(), npcs.size(), truths.size());
     }
 
     private void loadRules() {
@@ -133,6 +140,38 @@ public class DataswornService {
         }
     }
 
+    private void loadNpcs() {
+        try (InputStream is = Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream("rules/npcs.yaml")) {
+            if (is == null) {
+                log.warn("rules/npcs.yaml not found on classpath");
+                return;
+            }
+            RulesPackageRuleset ruleset = loadYaml(is, RulesPackageRuleset.class);
+            if (ruleset.getNpcs() != null) {
+                npcs.putAll(ruleset.getNpcs());
+            }
+        } catch (Exception e) {
+            log.errorf(e, "Failed to load npcs.yaml: %s", e.getMessage());
+        }
+    }
+
+    private void loadTruths() {
+        try (InputStream is = Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream("rules/truths.yaml")) {
+            if (is == null) {
+                log.warn("rules/truths.yaml not found on classpath");
+                return;
+            }
+            RulesPackageRuleset ruleset = loadYaml(is, RulesPackageRuleset.class);
+            if (ruleset.getTruths() != null) {
+                truths.putAll(ruleset.getTruths());
+            }
+        } catch (Exception e) {
+            log.errorf(e, "Failed to load truths.yaml: %s", e.getMessage());
+        }
+    }
+
     /**
      * Parse YAML via SnakeYAML (which handles merge keys and anchors correctly),
      * then convert through Jackson for typed deserialization.
@@ -156,5 +195,13 @@ public class DataswornService {
 
     public Map<String, OracleTablesCollection> getOracles() {
         return oracles;
+    }
+
+    public Map<String, NpcCollection> getNpcs() {
+        return npcs;
+    }
+
+    public Map<String, Truth> getTruths() {
+        return truths;
     }
 }
