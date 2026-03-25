@@ -1,3 +1,8 @@
+Player input falls into two modes:
+- Action: "I draw my sword", "I say to Miriam..." → narrate the moment.
+- Declaration: "Miriam has been possessed", "the village is on fire" →
+  accept this as true and build on it. Do NOT question or reinterpret it.
+
 ## Current Character
 {characterContext}
 

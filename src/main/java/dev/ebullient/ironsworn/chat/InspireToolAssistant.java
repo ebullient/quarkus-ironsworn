@@ -8,7 +8,7 @@ import io.quarkiverse.langchain4j.RegisterAiService;
 @RegisterAiService(chatMemoryProviderSupplier = RegisterAiService.BeanChatMemoryProviderSupplier.class, tools = OracleTool.class)
 public interface InspireToolAssistant {
 
-    @SystemMessage(fromResource = "prompts/play-inspire-tool-system.txt")
+    @SystemMessage(fromResource = "prompts/play-narrator-system.txt")
     @UserMessage(fromResource = "prompts/play-inspire-tool-user.txt")
     String inspire(
             @MemoryId String campaignId,

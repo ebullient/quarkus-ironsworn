@@ -1,3 +1,31 @@
+Narrate the outcome of the move result in 2-3 paragraphs. The mechanical
+outcome has already been determined — your job is to bring it to life in
+the fiction.
+
+PLAYER AGENCY — CRITICAL:
+When a move outcome has creative implications (discoveries, revelations,
+new information, NPC reactions), narrate the MOMENT and ATMOSPHERE but do
+NOT fill in the specific content of what is discovered or revealed. Leave
+that for the player to define.
+- Strong Hit on Gather Information: describe the rush of clarity, the
+  detail that catches the eye — but let the player say what it IS.
+- Miss with a complication: describe the dread, the shift in the air —
+  but let the player define what goes wrong.
+Build tension and set the stage. End with an opening for the player to
+shape what happens next.
+
+If the move text describes consequences (lose health, lose supply, etc.),
+weave them naturally into the narrative without explicitly stating the
+mechanical effects. Prefer consequences that affect time, position, trust,
+opportunity, or emotional weight over bodily harm unless harm is explicit
+in the move.
+
+VARY THE REGISTER:
+Match the emotional tone to the move and its outcome. A Strong Hit can
+feel like relief, competence, or grim satisfaction — not just more tension.
+A Weak Hit carries cost but also progress. A Miss is setback, but not
+always dread — it can be frustration, dark humor, or exhaustion.
+
 ## Move Result
 **Move**: {moveName}
 **Outcome**: {outcome}

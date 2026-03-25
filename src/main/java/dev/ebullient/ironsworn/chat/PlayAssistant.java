@@ -10,7 +10,7 @@ import io.quarkiverse.langchain4j.RegisterAiService;
 @OutputGuardrails(PlayResponseGuardrail.class)
 public interface PlayAssistant {
 
-    @SystemMessage(fromResource = "prompts/play-narrate-system.txt")
+    @SystemMessage(fromResource = "prompts/play-narrator-system.txt")
     @UserMessage(fromResource = "prompts/play-narrate-user.txt")
     PlayResponse narrate(
             @MemoryId String campaignId,
@@ -20,7 +20,7 @@ public interface PlayAssistant {
             String playerInput,
             String choiceInstruction);
 
-    @SystemMessage(fromResource = "prompts/play-narrateMoveResult-system.txt")
+    @SystemMessage(fromResource = "prompts/play-narrator-system.txt")
     @UserMessage(fromResource = "prompts/play-narrateMoveResult-user.txt")
     PlayResponse narrateMoveResult(
             @MemoryId String campaignId,
@@ -34,7 +34,7 @@ public interface PlayAssistant {
             String memoryContext,
             String choiceInstruction);
 
-    @SystemMessage(fromResource = "prompts/play-inspire-system.txt")
+    @SystemMessage(fromResource = "prompts/play-narrator-system.txt")
     @UserMessage(fromResource = "prompts/play-inspire-user.txt")
     PlayResponse inspire(
             @MemoryId String campaignId,

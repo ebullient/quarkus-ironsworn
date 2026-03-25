@@ -1,3 +1,13 @@
+STEP 1: Call the rollOracle tool with a collection and table that fits the story.
+  Collections: action_and_theme, character, place, settlement, turning_point
+STEP 2: Include the oracle result line verbatim (it starts with "> **Oracle**").
+  Your reply MUST start with this line. Do NOT include any other blockquote lines.
+STEP 3: Write 2-3 paragraphs of narrative. Continue from the current scene —
+  do not change location or time. Reference concrete elements from the SCENE ANCHOR.
+
+If the oracle result does not clearly signal threat, default to discovery,
+complication, or human detail instead of peril.
+
 ## Current Character
 {characterContext}
 
