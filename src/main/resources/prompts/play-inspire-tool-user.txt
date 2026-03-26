@@ -14,7 +14,6 @@ complication, or human detail instead of peril.
 ## Recent Journal
 {journalContext}
 
-## Relevant Story Memory
 {memoryContext}
 
 Roll an oracle and narrate the next beat.

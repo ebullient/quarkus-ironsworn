@@ -106,7 +106,11 @@ public class StoryMemoryService {
             remaining -= line.length();
         }
 
-        return sb.toString().trim();
+        String bullets = sb.toString().trim();
+        if (bullets.isBlank()) {
+            return "";
+        }
+        return "## Relevant Story Memory\n\n" + bullets;
     }
 
     private static String collapseWhitespace(String text) {

@@ -37,7 +37,6 @@ always dread — it can be frustration, dark humor, or exhaustion.
 ## Recent Journal
 {journalContext}
 
-## Relevant Story Memory (retrieved from earlier journal entries)
 {memoryContext}
 
 Narrate what happens.

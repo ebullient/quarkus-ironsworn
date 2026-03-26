@@ -21,6 +21,7 @@ import dev.ebullient.ironsworn.chat.oracle.OracleService;
 import dev.ebullient.ironsworn.chat.response.PlayResponse;
 import dev.ebullient.ironsworn.journal.GameJournal;
 import dev.ebullient.ironsworn.journal.JournalParser;
+import dev.ebullient.ironsworn.memory.PlayContext;
 import dev.ebullient.ironsworn.memory.StoryMemoryIndexer;
 import dev.ebullient.ironsworn.memory.StoryMemoryService;
 import dev.ebullient.ironsworn.model.CharacterSheet;
@@ -75,6 +76,9 @@ public class PlayWebSocket {
 
     @Inject
     StoryMemoryIndexer storyMemoryIndexer;
+
+    @Inject
+    PlayContext playContext;
 
     @Inject
     ObjectMapper objectMapper;
@@ -167,6 +171,7 @@ public class PlayWebSocket {
     @OnTextMessage
     @RunOnVirtualThread
     public String onMessage(String rawMessage) {
+        playContext.set(campaignId);
         try {
             JsonNode msg = objectMapper.readTree(rawMessage);
             String type = msg.path("type").asText();

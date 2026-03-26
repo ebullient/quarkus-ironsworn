@@ -9,7 +9,6 @@ Player input falls into two modes:
 ## Recent Journal
 {journalContext}
 
-## Relevant Story Memory (retrieved from earlier journal entries)
 {memoryContext}
 
 ## Player
