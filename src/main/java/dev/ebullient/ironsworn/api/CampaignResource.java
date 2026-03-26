@@ -14,9 +14,11 @@ import dev.ebullient.ironsworn.chat.assistant.CampaignAssistant;
 import dev.ebullient.ironsworn.chat.response.CampaignResponse;
 import dev.ebullient.ironsworn.journal.GameJournal;
 import dev.ebullient.ironsworn.journal.JournalParser;
+import dev.ebullient.ironsworn.memory.PlayContext;
 import dev.ebullient.ironsworn.memory.StoryMemoryService;
 import dev.ebullient.ironsworn.model.CharacterSheet;
 import dev.ebullient.ironsworn.util.MarkdownAugmenter;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 
 @ApplicationScoped
 @Path("/api/campaign")
@@ -32,12 +34,16 @@ public class CampaignResource {
     StoryMemoryService storyMemory;
 
     @Inject
+    PlayContext playContext;
+
+    @Inject
     MarkdownAugmenter prettify;
 
     @POST
     @Path("/{campaignId}")
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.TEXT_HTML)
+    @RunOnVirtualThread
     public String ask(@RestPath String campaignId, String question) {
         CharacterSheet character = journal.readCharacter(campaignId);
         String charCtx = formatCharacterContext(character);
@@ -45,6 +51,7 @@ public class CampaignResource {
                 .replaceAll("\\n+", "\n");
         String memoryCtx = storyMemory.relevantMemory(campaignId, question);
 
+        playContext.set(campaignId);
         CampaignResponse response = assistant.answer(campaignId, charCtx, journalCtx, memoryCtx, question);
         return prettify.markdownToHtml(response.response() != null ? response.response() : "");
     }

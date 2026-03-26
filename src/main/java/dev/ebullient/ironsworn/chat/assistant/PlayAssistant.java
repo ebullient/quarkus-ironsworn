@@ -2,13 +2,14 @@ package dev.ebullient.ironsworn.chat.assistant;
 
 import dev.ebullient.ironsworn.chat.response.PlayResponse;
 import dev.ebullient.ironsworn.chat.response.PlayResponseGuardrail;
+import dev.ebullient.ironsworn.memory.StoryMemoryTool;
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.guardrail.OutputGuardrails;
 import io.quarkiverse.langchain4j.RegisterAiService;
 
-@RegisterAiService(chatMemoryProviderSupplier = RegisterAiService.BeanChatMemoryProviderSupplier.class)
+@RegisterAiService(chatMemoryProviderSupplier = RegisterAiService.BeanChatMemoryProviderSupplier.class, tools = StoryMemoryTool.class)
 @OutputGuardrails(PlayResponseGuardrail.class)
 public interface PlayAssistant {
 
