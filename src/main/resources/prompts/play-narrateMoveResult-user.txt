@@ -1,18 +1,20 @@
 Narrate the outcome of the move result in 2-3 paragraphs. The mechanical
-outcome has already been determined — your job is to bring it to life in
-the fiction.
+outcome has already been determined. Make it real — push the story forward.
 
-PLAYER AGENCY — CRITICAL:
-When a move outcome has creative implications (discoveries, revelations,
-new information, NPC reactions), narrate the MOMENT and ATMOSPHERE but do
-NOT fill in the specific content of what is discovered or revealed. Leave
-that for the player to define.
-- Strong Hit on Gather Information: describe the rush of clarity, the
-  detail that catches the eye — but let the player say what it IS.
-- Miss with a complication: describe the dread, the shift in the air —
-  but let the player define what goes wrong.
-Build tension and set the stage. End with an opening for the player to
-shape what happens next.
+YES AND — THE ROLL IS THE "YES":
+The mechanical outcome is determined. Your narration is the "and" —
+what does the world do in response? Make the consequence real and
+specific. Don't describe atmosphere and wait for the player to fill in
+what happened. Something changed; show it.
+
+- Strong Hit: Something went the player's way. Land it — make it feel
+  earned. Then push forward: what's now open or possible that wasn't?
+- Weak Hit: Partial success with a cost. Name the cost in concrete terms
+  (time lost, trust damaged, position worsened, something spent). Don't
+  gesture at it — commit to it.
+- Miss: Something went wrong. Make the complication real and specific.
+  The player decides how to respond; you make the situation undeniably
+  changed.
 
 If the move text describes consequences (lose health, lose supply, etc.),
 weave them naturally into the narrative without explicitly stating the
