@@ -7,6 +7,63 @@ Built with **Quarkus**, **LangChain4j**, **Ollama** (local LLM), and **Neo4j** (
 
 ---
 
+## Quick Start
+
+**Prerequisites:** Java 21+, Maven or [Quarkus CLI](https://quarkus.io/guides/cli-tooling), Docker or Podman, [Ollama](https://ollama.com)
+
+### Step 1 — Pull Ollama models
+
+```shell
+ollama pull qwen3:14b        # recommended
+ollama pull nomic-embed-text
+```
+
+> `llama3.2` also works, but oracle tool calling must stay disabled — it is off by default (`ironsworn.oracle.use-tool-calling=false`).
+> With `qwen3:14b` you can optionally enable it.
+
+### Step 2 — Start Neo4j
+
+```shell
+docker compose up -d neo4j
+```
+
+### Step 3 — Run
+
+**Dev mode** (live reload, port 8082):
+
+```shell
+./mvnw quarkus:dev
+# or: quarkus dev
+```
+
+Open [http://localhost:8082](http://localhost:8082).
+
+**Packaged jar** (port 8080):
+
+```shell
+# Build
+./mvnw package -DskipTests
+# or: quarkus build
+```
+
+Create `config/application.properties` in the project root:
+
+```properties
+quarkus.neo4j.uri=bolt://localhost:7688
+quarkus.neo4j.authentication.username=neo4j
+quarkus.neo4j.authentication.password=devpassword
+```
+
+```shell
+java -jar target/quarkus-app/quarkus-run.jar
+```
+
+Open [http://localhost:8080](http://localhost:8080).
+
+> `config/` is in `.gitignore` — credentials won't be accidentally committed.
+
+---
+
 ## What This Demonstrates
 
 This application shows four levels of LLM integration, each building on the last:
@@ -88,34 +145,6 @@ Ask questions about your campaign's history. The LLM answers using:
 | `/play/{id}` | Level 3: Full Ironsworn gameplay |
 | `/campaign/{id}` | Level 4: Campaign Q&A with RAG |
 | `/reference` | Rules reference — moves, oracles, atlas |
-
----
-
-## Running the Demo
-
-### Prerequisites
-
-**Ollama** (local LLM):
-
-```shell
-ollama serve
-ollama pull llama3.2
-ollama pull nomic-embed-text
-```
-
-**Neo4j** (vector store for story memory):
-
-```shell
-docker compose up -d neo4j
-```
-
-### Start the application
-
-```shell
-./mvnw quarkus:dev
-```
-
-Open [http://localhost:8082](http://localhost:8082).
 
 ---
 
